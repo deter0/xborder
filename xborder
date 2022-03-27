@@ -1,0 +1,100 @@
+#!/bin/python3
+import math
+import cairo
+
+import gi
+import time
+from numpy import true_divide
+gi.require_version('Gtk', '3.0')
+gi.require_version('Gdk', '3.0')
+
+from gi.repository import Gtk, Gdk
+import subprocess
+import re
+
+BORDER_RADIUS = 14;
+BORDER_WIDTH = 4.0;
+BORDER_R = 100;
+BORDER_G = 78;
+BORDER_B = 248;
+BORDER_A = 1;
+
+root = Gdk.get_default_root_window()
+screen = root.get_screen()
+class Highlight (Gtk.Window):
+	def __init__(self, opacity=0.6):
+		super().__init__(Gtk.WindowType.POPUP)
+		
+		self.set_app_paintable(True);
+		screen = self.get_screen();
+		visual = screen.get_rgba_visual();
+		self.set_visual(visual);
+		self.show_all();
+		
+		width, height = screen.get_width(), screen.get_height();
+		self.resize(width, height);
+		self.move(0, 0);
+		
+		self.fullscreen();
+		self.set_decorated(False);
+		self.set_skip_taskbar_hint(True)
+		self.set_skip_pager_hint(True)
+		self.set_keep_above(True)
+		self.set_type_hint(Gdk.WindowTypeHint.NOTIFICATION)
+		
+		self.set_accept_focus(False)
+		self.set_focus_on_map(False)
+		self.input_shape_combine_region(cairo.Region())
+		
+		# Keep state.
+		self._regions = []
+		self.opacity = opacity
+
+		self.connect('draw', self._on_draw)
+	def _on_draw(self, _wid, ctx):
+		if not screen.is_composited():
+				subprocess.Popen(['notify-send', "xborder", "xborders terminated due to no compositor."])
+				exit(1)
+		ctx.save()
+
+		output = None
+		try:
+			output = subprocess.Popen(["xdotool", "getactivewindow", "getwindowgeometry"], stdout=subprocess.PIPE).communicate()[0]
+		except:
+				ctx.restore()
+				return
+		numbers = re.findall(r'[-0-9]+', output.decode("utf-8"))
+		if (len(numbers) > 5):
+			# a custom shape that could be wrapped in a function */
+			x         = float(numbers[1])        # parameters like cairo_rectangle */
+			y         = float(numbers[2])
+			width         = float(numbers[4])
+			height        = float(numbers[5])
+			aspect        = 1 # aspect ratio */
+			corner_radius =  BORDER_RADIUS #height / 50.0   # and corner curvature radius */
+
+			radius = corner_radius / aspect;
+			degrees = math.pi / 180.0;
+
+			ctx.new_sub_path();
+			ctx.arc(x + width - radius, y + radius, radius, -90 * degrees, 0 * degrees);
+			ctx.arc(x + width - radius, y + height - radius, radius, 0 * degrees, 90 * degrees);
+			ctx.arc(x + radius, y + height - radius, radius, 90 * degrees, 180 * degrees);
+			ctx.arc(x + radius, y + radius, radius, 180 * degrees, 270 * degrees);
+			ctx.close_path();
+
+			# ctx.set_source_rgb (0.5, 0.5, 1);
+			# ctx.fill_preserve();
+			ctx.set_source_rgba (BORDER_R / 255, BORDER_G / 255, BORDER_B / 255, BORDER_A);
+			ctx.set_line_width (BORDER_WIDTH);
+			ctx.stroke();
+		ctx.restore()
+		self.queue_draw()
+
+win = Highlight();
+win.connect("destroy", Gtk.main_quit);
+win.set_keep_above(True);
+win.set_title("Highlight")
+win.show_all()
+
+Gtk.main()
