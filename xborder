@@ -1,17 +1,20 @@
 #!/bin/python3
 import math
+from telnetlib import theNULL
+import time
 import cairo
 
 import gi
-import time
-from numpy import true_divide
+from xdo import Xdo
+xdo = Xdo()
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 
 from gi.repository import Gtk, Gdk
+Gdk.threads_init()
 import subprocess
-import re
 
+DESKTOP_DRAG_STRESS_TOY = True;
 BORDER_RADIUS = 14;
 BORDER_WIDTH = 4.0;
 BORDER_R = 100;
@@ -19,10 +22,37 @@ BORDER_G = 78;
 BORDER_B = 248;
 BORDER_A = 1;
 
+def get_win():
+	win = None
+	try:
+		win = xdo.get_active_window()
+	except:
+		return None, None;
+	if (win):
+		size = xdo.get_window_size(win)
+		position = xdo.get_window_location(win)
+		return position, size;
+	else:
+		return None, None;
+
+def get_screen_size(display):
+    mon_geoms = [
+        display.get_monitor(i).get_geometry()
+        for i in range(display.get_n_monitors())
+    ]
+
+    x0 = min(r.x            for r in mon_geoms)
+    y0 = min(r.y            for r in mon_geoms)
+    x1 = max(r.x + r.width  for r in mon_geoms)
+    y1 = max(r.y + r.height for r in mon_geoms)
+
+    return x1 - x0, y1 - y0
+
 root = Gdk.get_default_root_window()
 screen = root.get_screen()
+rectangle = cairo.RectangleInt(0, 0, 1920, 1080);
 class Highlight (Gtk.Window):
-	def __init__(self, opacity=0.6):
+	def __init__(self):
 		super().__init__(Gtk.WindowType.POPUP)
 		
 		self.set_app_paintable(True);
@@ -31,7 +61,7 @@ class Highlight (Gtk.Window):
 		self.set_visual(visual);
 		self.show_all();
 		
-		width, height = screen.get_width(), screen.get_height();
+		width, height = get_screen_size(Gdk.Display.get_default());
 		self.resize(width, height);
 		self.move(0, 0);
 		
@@ -46,11 +76,31 @@ class Highlight (Gtk.Window):
 		self.set_focus_on_map(False)
 		self.input_shape_combine_region(cairo.Region())
 		
+		self.drawingarea = Gtk.DrawingArea()
+		self.drawingarea.connect ('button-press-event',self.callback)
+		self.drawingarea.connect ('button-release-event',self.callback2)
+		Gdk.EventMask.POINTER_MOTION_MASK
+		self.drawingarea.set_events(Gdk.EventMask.EXPOSURE_MASK  
+															| Gdk.EventMask.BUTTON_PRESS_MASK
+															| Gdk.EventMask.BUTTON_RELEASE_MASK  )
+		self.add(self.drawingarea)
+		
 		# Keep state.
 		self._regions = []
-		self.opacity = opacity
 
 		self.connect('draw', self._on_draw)
+	def callback(self, widget, event):
+		if event.button == 1:
+			self.rect_x = event.x
+			self.rect_y = event.y
+		return True
+	def callback2(self, widget, event):
+		if event.button == 1:
+			self.rect_x = None
+			self.rect_y = None
+		return True
+	rect_x = None;
+	rect_y = None;
 	def _on_draw(self, _wid, ctx):
 		if not screen.is_composited():
 				subprocess.Popen(['notify-send', "xborder", "xborders terminated due to no compositor."])
@@ -58,18 +108,13 @@ class Highlight (Gtk.Window):
 		ctx.save()
 
 		output = None
-		try:
-			output = subprocess.Popen(["xdotool", "getactivewindow", "getwindowgeometry"], stdout=subprocess.PIPE).communicate()[0]
-		except:
-				ctx.restore()
-				return
-		numbers = re.findall(r'[-0-9]+', output.decode("utf-8"))
-		if (len(numbers) > 5):
+		position, size = get_win();
+		if (position != None):
 			# a custom shape that could be wrapped in a function */
-			x         = float(numbers[1])        # parameters like cairo_rectangle */
-			y         = float(numbers[2])
-			width         = float(numbers[4])
-			height        = float(numbers[5])
+			x         = position.x        # parameters like cairo_rectangle */
+			y         = position.y
+			width         = size.width;
+			height        = size.height;
 			aspect        = 1 # aspect ratio */
 			corner_radius =  BORDER_RADIUS #height / 50.0   # and corner curvature radius */
 
@@ -88,6 +133,28 @@ class Highlight (Gtk.Window):
 			ctx.set_source_rgba (BORDER_R / 255, BORDER_G / 255, BORDER_B / 255, BORDER_A);
 			ctx.set_line_width (BORDER_WIDTH);
 			ctx.stroke();
+			
+			self.set_accept_focus(False)
+			self.set_focus_on_map(False)
+			self.input_shape_combine_region(cairo.Region())
+			self.rect_x = None;
+			self.rect_y = None;
+		else:
+			self.set_accept_focus(True)
+			self.set_focus_on_map(True)
+			self.input_shape_combine_region(cairo.Region(rectangle))
+			
+		if (self.rect_x and self.rect_y):
+			if (DESKTOP_DRAG_STRESS_TOY):
+				current = xdo.get_mouse_location()
+				ctx.rectangle(self.rect_x, self.rect_y,
+					current.x - self.rect_x, current.y - self.rect_y);
+				ctx.set_source_rgba(BORDER_R / 255, BORDER_G / 255, BORDER_B / 255, 0.85);
+				ctx.set_line_width(2);
+				ctx.stroke_preserve();
+				ctx.set_source_rgba(BORDER_R / 255, BORDER_G / 255, BORDER_B / 255, 0.5);
+				ctx.fill();
+		
 		ctx.restore()
 		self.queue_draw()
 
@@ -95,6 +162,8 @@ win = Highlight();
 win.connect("destroy", Gtk.main_quit);
 win.set_keep_above(True);
 win.set_title("Highlight")
+
+
 win.show_all()
 
 Gtk.main()
