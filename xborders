@@ -1,7 +1,4 @@
 #!/bin/python3
-import math
-from telnetlib import theNULL
-import time
 import cairo
 
 import gi
@@ -11,7 +8,8 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 
 from gi.repository import Gtk, Gdk
-Gdk.threads_init()
+import draw
+
 import subprocess
 
 DESKTOP_DRAG_STRESS_TOY = True;
@@ -50,10 +48,11 @@ def get_screen_size(display):
 
 root = Gdk.get_default_root_window()
 screen = root.get_screen()
-rectangle = cairo.RectangleInt(0, 0, 1920, 1080);
+screen_width, screen_height = get_screen_size(Gdk.Display.get_default());
+rectangle = cairo.RectangleInt(0, 0, screen_width, screen_height);
 class Highlight (Gtk.Window):
 	def __init__(self):
-		super().__init__(Gtk.WindowType.POPUP)
+		super().__init__(type=Gtk.WindowType.POPUP)
 		
 		self.set_app_paintable(True);
 		screen = self.get_screen();
@@ -61,8 +60,7 @@ class Highlight (Gtk.Window):
 		self.set_visual(visual);
 		self.show_all();
 		
-		width, height = get_screen_size(Gdk.Display.get_default());
-		self.resize(width, height);
+		self.resize(screen_width, screen_height);
 		self.move(0, 0);
 		
 		self.fullscreen();
@@ -84,9 +82,6 @@ class Highlight (Gtk.Window):
 															| Gdk.EventMask.BUTTON_PRESS_MASK
 															| Gdk.EventMask.BUTTON_RELEASE_MASK  )
 		self.add(self.drawingarea)
-		
-		# Keep state.
-		self._regions = []
 
 		self.connect('draw', self._on_draw)
 	def callback(self, widget, event):
@@ -107,33 +102,15 @@ class Highlight (Gtk.Window):
 				exit(1)
 		ctx.save()
 
-		output = None
 		position, size = get_win();
 		if (position != None):
-			# a custom shape that could be wrapped in a function */
-			x         = position.x        # parameters like cairo_rectangle */
-			y         = position.y
-			width         = size.width;
-			height        = size.height;
-			aspect        = 1 # aspect ratio */
-			corner_radius =  BORDER_RADIUS #height / 50.0   # and corner curvature radius */
+			draw.draw_rectangle(
+				ctx, position.x, position.y,
+				size.width, size.height,
+				BORDER_RADIUS, BORDER_WIDTH,
+				[0, 0, 0, 0],
+				[BORDER_R, BORDER_G, BORDER_B, BORDER_A]);
 
-			radius = corner_radius / aspect;
-			degrees = math.pi / 180.0;
-
-			ctx.new_sub_path();
-			ctx.arc(x + width - radius, y + radius, radius, -90 * degrees, 0 * degrees);
-			ctx.arc(x + width - radius, y + height - radius, radius, 0 * degrees, 90 * degrees);
-			ctx.arc(x + radius, y + height - radius, radius, 90 * degrees, 180 * degrees);
-			ctx.arc(x + radius, y + radius, radius, 180 * degrees, 270 * degrees);
-			ctx.close_path();
-
-			# ctx.set_source_rgb (0.5, 0.5, 1);
-			# ctx.fill_preserve();
-			ctx.set_source_rgba (BORDER_R / 255, BORDER_G / 255, BORDER_B / 255, BORDER_A);
-			ctx.set_line_width (BORDER_WIDTH);
-			ctx.stroke();
-			
 			self.set_accept_focus(False)
 			self.set_focus_on_map(False)
 			self.input_shape_combine_region(cairo.Region())
@@ -147,23 +124,31 @@ class Highlight (Gtk.Window):
 		if (self.rect_x and self.rect_y):
 			if (DESKTOP_DRAG_STRESS_TOY):
 				current = xdo.get_mouse_location()
-				ctx.rectangle(self.rect_x, self.rect_y,
-					current.x - self.rect_x, current.y - self.rect_y);
-				ctx.set_source_rgba(BORDER_R / 255, BORDER_G / 255, BORDER_B / 255, 0.85);
-				ctx.set_line_width(2);
-				ctx.stroke_preserve();
-				ctx.set_source_rgba(BORDER_R / 255, BORDER_G / 255, BORDER_B / 255, 0.5);
-				ctx.fill();
+				draw.draw_rectangle(
+					ctx, self.rect_x, self.rect_y,
+					current.x - self.rect_x, current.y - self.rect_y,
+					0, 4,
+					[BORDER_R, BORDER_G, BORDER_B, 0.5],
+					[BORDER_R, BORDER_G, BORDER_B, 0.85]
+				)
 		
 		ctx.restore()
 		self.queue_draw()
 
-win = Highlight();
-win.connect("destroy", Gtk.main_quit);
-win.set_keep_above(True);
-win.set_title("Highlight")
+def main():
+	win = Highlight();
+	win.connect("destroy", Gtk.main_quit);
+	win.set_keep_above(True);
+	win.set_title("Highlight")
 
+	win.show_all()
 
-win.show_all()
+	Gtk.main()
 
-Gtk.main()
+if __name__=="__main__":
+	try:
+		main()
+	except KeyboardInterrupt:
+		exit(0)
+else:
+	print("This program is not meant to be imported to other Python modules. Please run xborders as a standalone script!")
