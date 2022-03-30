@@ -11,7 +11,6 @@ Active window border replacement for window managers.
 
 ## Dependencies
 * pycairo (Tested with version 1.21.0, `pip install pycairo`)
-* python-libxdo (Tested with version 0.1.2a1, `pip install python-libxdo`)
 * gtk
 
 ### Config
