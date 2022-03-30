@@ -2,54 +2,63 @@
 import cairo
 
 import gi
-from xdo import Xdo
-xdo = Xdo()
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 
 from gi.repository import Gtk, Gdk
 import draw
 
+import re
 import subprocess
+import sys
 
 DESKTOP_DRAG_STRESS_TOY = True;
 BORDER_RADIUS = 14;
-BORDER_WIDTH = 4.0;
-BORDER_R = 100;
-BORDER_G = 78;
-BORDER_B = 248;
+BORDER_WIDTH = 4;
+BORDER_R = 123;
+BORDER_G = 88;
+BORDER_B = 220;
 BORDER_A = 1;
+SCREEN_TOP_PADDING = 0; # Only if you have the desktop drag thing and a bar on top
 
 def get_win():
-	win = None
-	try:
-		win = xdo.get_active_window()
-	except:
-		return None, None;
-	if (win):
-		size = xdo.get_window_size(win)
-		position = xdo.get_window_location(win)
-		return position, size;
-	else:
-		return None, None;
+	completed_process = subprocess.run(["xdotool", "getactivewindow", "getwindowgeometry"], capture_output=True)
+	if (completed_process.returncode != 0):
+		return None;
+	process_stdout = completed_process.stdout.decode("utf-8")
+	numbers = [int(x) for x in re.findall('[-0-9]+', process_stdout)]
+	x = numbers[1]
+	y = numbers[2]
+	width = numbers[4]
+	height = numbers[5]
+	return ((x,y), (width,height))
+
+def get_mouse_location():
+	completed_process = subprocess.run(["xdotool", "getmouselocation"], capture_output=True)
+	if (completed_process.returncode != 0):
+		sys.stderr.write("Error getting mouse location.\n")
+		return None;
+	process_stdout = completed_process.stdout.decode("utf-8")
+	numbers = [int(x) for x in re.findall('[-0-9]+', process_stdout)]
+	return (numbers[0], numbers[1])
 
 def get_screen_size(display):
-    mon_geoms = [
-        display.get_monitor(i).get_geometry()
-        for i in range(display.get_n_monitors())
-    ]
+	mon_geoms = [
+		display.get_monitor(i).get_geometry()
+		for i in range(display.get_n_monitors())
+	]
 
-    x0 = min(r.x            for r in mon_geoms)
-    y0 = min(r.y            for r in mon_geoms)
-    x1 = max(r.x + r.width  for r in mon_geoms)
-    y1 = max(r.y + r.height for r in mon_geoms)
+	x0 = min(r.x            for r in mon_geoms)
+	y0 = min(r.y            for r in mon_geoms)
+	x1 = max(r.x + r.width  for r in mon_geoms)
+	y1 = max(r.y + r.height for r in mon_geoms)
 
-    return x1 - x0, y1 - y0
+	return x1 - x0, y1 - y0
 
 root = Gdk.get_default_root_window()
 screen = root.get_screen()
 screen_width, screen_height = get_screen_size(Gdk.Display.get_default());
-rectangle = cairo.RectangleInt(0, 0, screen_width, screen_height);
+rectangle = cairo.RectangleInt(0, SCREEN_TOP_PADDING, screen_width, screen_height - SCREEN_TOP_PADDING);
 class Highlight (Gtk.Window):
 	def __init__(self):
 		super().__init__(type=Gtk.WindowType.POPUP)
@@ -102,11 +111,11 @@ class Highlight (Gtk.Window):
 				exit(1)
 		ctx.save()
 
-		position, size = get_win();
-		if (position != None):
+		win_data = get_win();
+		if (win_data != None):
 			draw.draw_rectangle(
-				ctx, position.x, position.y,
-				size.width, size.height,
+				ctx, win_data[0][0], win_data[0][1],
+				win_data[1][0], win_data[1][1],
 				BORDER_RADIUS, BORDER_WIDTH,
 				[0, 0, 0, 0],
 				[BORDER_R, BORDER_G, BORDER_B, BORDER_A]);
@@ -123,10 +132,10 @@ class Highlight (Gtk.Window):
 			
 		if (self.rect_x and self.rect_y):
 			if (DESKTOP_DRAG_STRESS_TOY):
-				current = xdo.get_mouse_location()
+				current = get_mouse_location()
 				draw.draw_rectangle(
 					ctx, self.rect_x, self.rect_y,
-					current.x - self.rect_x, current.y - self.rect_y,
+					current[0] - self.rect_x, current[1] - self.rect_y,
 					0, 4,
 					[BORDER_R, BORDER_G, BORDER_B, 0.5],
 					[BORDER_R, BORDER_G, BORDER_B, 0.85]
