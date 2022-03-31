@@ -13,8 +13,14 @@ import re
 import subprocess
 import sys
 
-with open('config.json') as config:
-	config = json.load(config)
+# The following few lines are to fix paths. I couldn't find a better way :/
+from pathlib import Path
+
+path = Path(__file__).parent.resolve()
+json_path = (path / "config.json").resolve()
+
+with open(json_path) as config:
+    config = json.load(config)
 
 def get_win():
 	completed_process = subprocess.run(["xdotool", "getactivewindow", "getwindowgeometry"], capture_output=True)
