@@ -1,5 +1,6 @@
 #!/bin/python3
 import cairo
+import json
 
 import gi
 gi.require_version('Gtk', '3.0')
@@ -12,19 +13,13 @@ import re
 import subprocess
 import sys
 
-DESKTOP_DRAG_STRESS_TOY = True;
-BORDER_RADIUS = 14;
-BORDER_WIDTH = 4;
-BORDER_R = 123;
-BORDER_G = 88;
-BORDER_B = 220;
-BORDER_A = 1;
-SCREEN_TOP_PADDING = 0; # Only if you have the desktop drag thing and a bar on top
+with open('config.json') as config:
+	config = json.load(config)
 
 def get_win():
 	completed_process = subprocess.run(["xdotool", "getactivewindow", "getwindowgeometry"], capture_output=True)
 	if (completed_process.returncode != 0):
-		return None;
+		return None
 	process_stdout = completed_process.stdout.decode("utf-8")
 	numbers = [int(x) for x in re.findall('[-0-9]+', process_stdout)]
 	x = numbers[1]
@@ -37,7 +32,7 @@ def get_mouse_location():
 	completed_process = subprocess.run(["xdotool", "getmouselocation"], capture_output=True)
 	if (completed_process.returncode != 0):
 		sys.stderr.write("Error getting mouse location.\n")
-		return None;
+		return None
 	process_stdout = completed_process.stdout.decode("utf-8")
 	numbers = [int(x) for x in re.findall('[-0-9]+', process_stdout)]
 	return (numbers[0], numbers[1])
@@ -57,23 +52,23 @@ def get_screen_size(display):
 
 root = Gdk.get_default_root_window()
 screen = root.get_screen()
-screen_width, screen_height = get_screen_size(Gdk.Display.get_default());
-rectangle = cairo.RectangleInt(0, SCREEN_TOP_PADDING, screen_width, screen_height - SCREEN_TOP_PADDING);
+screen_width, screen_height = get_screen_size(Gdk.Display.get_default())
+rectangle = cairo.RectangleInt(0, config['screenTopPadding'], screen_width, screen_height - config['screenTopPadding'])
 class Highlight (Gtk.Window):
 	def __init__(self):
 		super().__init__(type=Gtk.WindowType.POPUP)
 		
-		self.set_app_paintable(True);
-		screen = self.get_screen();
-		visual = screen.get_rgba_visual();
-		self.set_visual(visual);
-		self.show_all();
+		self.set_app_paintable(True)
+		screen = self.get_screen()
+		visual = screen.get_rgba_visual()
+		self.set_visual(visual)
+		self.show_all()
 		
-		self.resize(screen_width, screen_height);
-		self.move(0, 0);
+		self.resize(screen_width, screen_height)
+		self.move(0, 0)
 		
-		self.fullscreen();
-		self.set_decorated(False);
+		self.fullscreen()
+		self.set_decorated(False)
 		self.set_skip_taskbar_hint(True)
 		self.set_skip_pager_hint(True)
 		self.set_keep_above(True)
@@ -103,51 +98,51 @@ class Highlight (Gtk.Window):
 			self.rect_x = None
 			self.rect_y = None
 		return True
-	rect_x = None;
-	rect_y = None;
+	rect_x = None
+	rect_y = None
 	def _on_draw(self, _wid, ctx):
 		if not screen.is_composited():
 				subprocess.Popen(['notify-send', "xborder", "xborders terminated due to no compositor."])
 				exit(1)
 		ctx.save()
 
-		win_data = get_win();
+		win_data = get_win()
 		if (win_data != None):
 			draw.draw_rectangle(
 				ctx, win_data[0][0], win_data[0][1],
 				win_data[1][0], win_data[1][1],
-				BORDER_RADIUS, BORDER_WIDTH,
+				config['borderRadius'], config['borderWidth'],
 				[0, 0, 0, 0],
-				[BORDER_R, BORDER_G, BORDER_B, BORDER_A]);
+				[config['borderRGBA'][0], config['borderRGBA'][1], config['borderRGBA'][2], config['borderRGBA'][3]])
 
 			self.set_accept_focus(False)
 			self.set_focus_on_map(False)
 			self.input_shape_combine_region(cairo.Region())
-			self.rect_x = None;
-			self.rect_y = None;
+			self.rect_x = None
+			self.rect_y = None
 		else:
 			self.set_accept_focus(True)
 			self.set_focus_on_map(True)
 			self.input_shape_combine_region(cairo.Region(rectangle))
 			
 		if (self.rect_x and self.rect_y):
-			if (DESKTOP_DRAG_STRESS_TOY):
+			if (config['desktopDragStressToy']):
 				current = get_mouse_location()
 				draw.draw_rectangle(
 					ctx, self.rect_x, self.rect_y,
 					current[0] - self.rect_x, current[1] - self.rect_y,
 					0, 4,
-					[BORDER_R, BORDER_G, BORDER_B, 0.5],
-					[BORDER_R, BORDER_G, BORDER_B, 0.85]
+					[config['borderRGBA'][0], config['borderRGBA'][1], config['borderRGBA'][2], 0.5],
+					[config['borderRGBA'][0], config['borderRGBA'][1], config['borderRGBA'][2], 0.85]
 				)
 		
 		ctx.restore()
 		self.queue_draw()
 
 def main():
-	win = Highlight();
-	win.connect("destroy", Gtk.main_quit);
-	win.set_keep_above(True);
+	win = Highlight()
+	win.connect("destroy", Gtk.main_quit)
+	win.set_keep_above(True)
 	win.set_title("Highlight")
 
 	win.show_all()
