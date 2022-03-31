@@ -1,0 +1,7 @@
+{
+    "desktopDragStressToy": true,
+    "borderRadius": 14,
+    "borderWidth": 4,
+    "borderRGBA": [123, 88, 220, 1],
+    "screenTopPadding": 0
+}
