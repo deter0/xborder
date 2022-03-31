@@ -10,6 +10,7 @@ Active window border replacement for window managers.
 ![fun](https://user-images.githubusercontent.com/82973108/160370871-31f4dd1a-c508-4a82-a980-4724186ee8f0.gif)
 
 ## Dependencies
+* python 3.10 (3.9 doesn't work!)
 * pycairo (Tested with version 1.21.0, `pip install pycairo`)
 * gtk
 
