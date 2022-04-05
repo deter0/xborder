@@ -2,8 +2,9 @@
 import cairo
 
 import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('Gdk', '3.0')
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
 
 from gi.repository import Gtk, Gdk
 import draw
@@ -11,153 +12,292 @@ import draw
 import re
 import subprocess
 import sys
+import argparse
+import json
 
-DESKTOP_DRAG_STRESS_TOY = True;
-BORDER_RADIUS = 14;
-BORDER_WIDTH = 4;
-BORDER_R = 123;
-BORDER_G = 88;
-BORDER_B = 220;
-BORDER_A = 1;
-SCREEN_TOP_PADDING = 0; # Only if you have the desktop drag thing and a bar on top
+DESKTOP_DRAG_STRESS_TOY = True
+BORDER_RADIUS = 14
+BORDER_WIDTH = 4
+BORDER_R = 123
+BORDER_G = 88
+BORDER_B = 220
+BORDER_A = 1
+SCREEN_TOP_PADDING = 0
+# Only if you have the desktop drag thing and a bar on top
+
+
+def set_border_rgba(args):
+    literal_value = 0
+    try:
+        literal_value = int(args.border_rgba.replace("#", "0x"), 16)
+    except:
+        print(
+            f"`{args.border_rgba}` is an invalid hexadecimal number!",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    args.border_red = literal_value >> (3 * 8) & 0xFF
+    args.border_green = literal_value >> (2 * 8) & 0xFF
+    args.border_blue = literal_value >> (1 * 8) & 0xFF
+    args.border_alpha = (literal_value >> (0 * 8) & 0xFF) / 255  # map from 0 to 1
+
+
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", "-c", type=str, help="The path to the config file")
+    parser.add_argument(
+        "--border-radius", type=int, default=14, help="The border radius, in pixels"
+    )
+    parser.add_argument(
+        "--border-width", type=int, default=4, help="The border width in pixels"
+    )
+    parser.add_argument(
+        "--border-red",
+        type=int,
+        default=123,
+        help="The border's red value, between 0 and 255",
+    )
+    parser.add_argument(
+        "--border-green",
+        type=int,
+        default=88,
+        help="The border's green value, between 0 and 255",
+    )
+    parser.add_argument(
+        "--border-blue",
+        type=int,
+        default=220,
+        help="The border's blue value, between 0 and 255",
+    )
+    parser.add_argument(
+        "--border-alpha",
+        type=float,
+        default=1,
+        help="The border's alpha value, between zero and 1",
+    )
+    parser.add_argument(
+        "--border-rgba",
+        default=None,
+        help="The colours of the border in RGBA format",
+    )
+    parser.add_argument(
+        "--screen-top-padding",
+        type=int,
+        default=0,
+        help="The padding on the top of the screen",
+    )
+    parser.add_argument(
+        "--disable-drag-stress-toy", action="store_const", const=False, default=True
+    )
+    args = parser.parse_args()
+    if args.border_rgba is not None:
+        set_border_rgba(args)
+
+    # Extract the literal values
+
+    if args.config is not None:
+        with open(args.config, "r") as f:
+            raw = f.read().replace("-", "_")
+            dat = json.loads(raw)
+            for ident in dat:
+                if ident == "border_rgba":
+                    args.border_rgba = dat[ident]
+                    set_border_rgba(args)
+                else:
+                    args.__dict__[ident] = dat[
+                        ident
+                    ]  # Idea gotten from here: https://stackoverflow.com/a/1325798
+
+    global DESKTOP_DRAG_STRESS_TOY
+    global BORDER_RADIUS
+    global BORDER_WIDTH
+    global BORDER_R
+    global BORDER_G
+    global BORDER_B
+    global BORDER_A
+    global SCREEN_TOP_PADDING
+
+    DESKTOP_DRAG_STRESS_TOY = args.disable_drag_stress_toy
+    BORDER_RADIUS = args.border_radius
+    BORDER_WIDTH = args.border_width
+    BORDER_R = args.border_red
+    BORDER_G = args.border_green
+    BORDER_B = args.border_blue
+    BORDER_A = args.border_alpha
+    SCREEN_TOP_PADDING = args.screen_top_padding
+
+    return
+
 
 def get_win():
-	completed_process = subprocess.run(["xdotool", "getactivewindow", "getwindowgeometry"], capture_output=True)
-	if (completed_process.returncode != 0):
-		return None;
-	process_stdout = completed_process.stdout.decode("utf-8")
-	numbers = [int(x) for x in re.findall('[-0-9]+', process_stdout)]
-	x = numbers[1]
-	y = numbers[2]
-	width = numbers[4]
-	height = numbers[5]
-	return ((x,y), (width,height))
+    completed_process = subprocess.run(
+        ["xdotool", "getactivewindow", "getwindowgeometry"], capture_output=True
+    )
+    if completed_process.returncode != 0:
+        return None
+    process_stdout = completed_process.stdout.decode("utf-8")
+    numbers = [int(x) for x in re.findall("[-0-9]+", process_stdout)]
+    x = numbers[1]
+    y = numbers[2]
+    width = numbers[4]
+    height = numbers[5]
+    return ((x, y), (width, height))
+
 
 def get_mouse_location():
-	completed_process = subprocess.run(["xdotool", "getmouselocation"], capture_output=True)
-	if (completed_process.returncode != 0):
-		sys.stderr.write("Error getting mouse location.\n")
-		return None;
-	process_stdout = completed_process.stdout.decode("utf-8")
-	numbers = [int(x) for x in re.findall('[-0-9]+', process_stdout)]
-	return (numbers[0], numbers[1])
+    completed_process = subprocess.run(
+        ["xdotool", "getmouselocation"], capture_output=True
+    )
+    if completed_process.returncode != 0:
+        sys.stderr.write("Error getting mouse location.\n")
+        return None
+    process_stdout = completed_process.stdout.decode("utf-8")
+    numbers = [int(x) for x in re.findall("[-0-9]+", process_stdout)]
+    return (numbers[0], numbers[1])
+
 
 def get_screen_size(display):
-	mon_geoms = [
-		display.get_monitor(i).get_geometry()
-		for i in range(display.get_n_monitors())
-	]
+    mon_geoms = [
+        display.get_monitor(i).get_geometry() for i in range(display.get_n_monitors())
+    ]
 
-	x0 = min(r.x            for r in mon_geoms)
-	y0 = min(r.y            for r in mon_geoms)
-	x1 = max(r.x + r.width  for r in mon_geoms)
-	y1 = max(r.y + r.height for r in mon_geoms)
+    x0 = min(r.x for r in mon_geoms)
+    y0 = min(r.y for r in mon_geoms)
+    x1 = max(r.x + r.width for r in mon_geoms)
+    y1 = max(r.y + r.height for r in mon_geoms)
 
-	return x1 - x0, y1 - y0
+    return x1 - x0, y1 - y0
+
 
 root = Gdk.get_default_root_window()
 screen = root.get_screen()
-screen_width, screen_height = get_screen_size(Gdk.Display.get_default());
-rectangle = cairo.RectangleInt(0, SCREEN_TOP_PADDING, screen_width, screen_height - SCREEN_TOP_PADDING);
-class Highlight (Gtk.Window):
-	def __init__(self):
-		super().__init__(type=Gtk.WindowType.POPUP)
-		
-		self.set_app_paintable(True);
-		screen = self.get_screen();
-		visual = screen.get_rgba_visual();
-		self.set_visual(visual);
-		self.show_all();
-		
-		self.resize(screen_width, screen_height);
-		self.move(0, 0);
-		
-		self.fullscreen();
-		self.set_decorated(False);
-		self.set_skip_taskbar_hint(True)
-		self.set_skip_pager_hint(True)
-		self.set_keep_above(True)
-		self.set_type_hint(Gdk.WindowTypeHint.NOTIFICATION)
-		
-		self.set_accept_focus(False)
-		self.set_focus_on_map(False)
-		self.input_shape_combine_region(cairo.Region())
-		
-		self.drawingarea = Gtk.DrawingArea()
-		self.drawingarea.connect ('button-press-event',self.callback)
-		self.drawingarea.connect ('button-release-event',self.callback2)
-		Gdk.EventMask.POINTER_MOTION_MASK
-		self.drawingarea.set_events(Gdk.EventMask.EXPOSURE_MASK  
-															| Gdk.EventMask.BUTTON_PRESS_MASK
-															| Gdk.EventMask.BUTTON_RELEASE_MASK  )
-		self.add(self.drawingarea)
+screen_width, screen_height = get_screen_size(Gdk.Display.get_default())
+rectangle = cairo.RectangleInt(
+    0, SCREEN_TOP_PADDING, screen_width, screen_height - SCREEN_TOP_PADDING
+)
 
-		self.connect('draw', self._on_draw)
-	def callback(self, widget, event):
-		if event.button == 1:
-			self.rect_x = event.x
-			self.rect_y = event.y
-		return True
-	def callback2(self, widget, event):
-		if event.button == 1:
-			self.rect_x = None
-			self.rect_y = None
-		return True
-	rect_x = None;
-	rect_y = None;
-	def _on_draw(self, _wid, ctx):
-		if not screen.is_composited():
-				subprocess.Popen(['notify-send', "xborder", "xborders terminated due to no compositor."])
-				exit(1)
-		ctx.save()
 
-		win_data = get_win();
-		if (win_data != None):
-			draw.draw_rectangle(
-				ctx, win_data[0][0], win_data[0][1],
-				win_data[1][0], win_data[1][1],
-				BORDER_RADIUS, BORDER_WIDTH,
-				[0, 0, 0, 0],
-				[BORDER_R, BORDER_G, BORDER_B, BORDER_A]);
+class Highlight(Gtk.Window):
+    def __init__(self):
+        super().__init__(type=Gtk.WindowType.POPUP)
 
-			self.set_accept_focus(False)
-			self.set_focus_on_map(False)
-			self.input_shape_combine_region(cairo.Region())
-			self.rect_x = None;
-			self.rect_y = None;
-		else:
-			self.set_accept_focus(True)
-			self.set_focus_on_map(True)
-			self.input_shape_combine_region(cairo.Region(rectangle))
-			
-		if (self.rect_x and self.rect_y):
-			if (DESKTOP_DRAG_STRESS_TOY):
-				current = get_mouse_location()
-				draw.draw_rectangle(
-					ctx, self.rect_x, self.rect_y,
-					current[0] - self.rect_x, current[1] - self.rect_y,
-					0, 4,
-					[BORDER_R, BORDER_G, BORDER_B, 0.5],
-					[BORDER_R, BORDER_G, BORDER_B, 0.85]
-				)
-		
-		ctx.restore()
-		self.queue_draw()
+        self.set_app_paintable(True)
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        self.set_visual(visual)
+        self.show_all()
+
+        self.resize(screen_width, screen_height)
+        self.move(0, 0)
+
+        self.fullscreen()
+        self.set_decorated(False)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+        self.set_keep_above(True)
+        self.set_type_hint(Gdk.WindowTypeHint.NOTIFICATION)
+
+        self.set_accept_focus(False)
+        self.set_focus_on_map(False)
+        self.input_shape_combine_region(cairo.Region())
+
+        self.drawingarea = Gtk.DrawingArea()
+        self.drawingarea.connect("button-press-event", self.callback)
+        self.drawingarea.connect("button-release-event", self.callback2)
+        Gdk.EventMask.POINTER_MOTION_MASK
+        self.drawingarea.set_events(
+            Gdk.EventMask.EXPOSURE_MASK
+            | Gdk.EventMask.BUTTON_PRESS_MASK
+            | Gdk.EventMask.BUTTON_RELEASE_MASK
+        )
+        self.add(self.drawingarea)
+
+        self.connect("draw", self._on_draw)
+
+    def callback(self, widget, event):
+        if event.button == 1:
+            self.rect_x = event.x
+            self.rect_y = event.y
+        return True
+
+    def callback2(self, widget, event):
+        if event.button == 1:
+            self.rect_x = None
+            self.rect_y = None
+        return True
+
+    rect_x = None
+    rect_y = None
+
+    def _on_draw(self, _wid, ctx):
+        if not screen.is_composited():
+            subprocess.Popen(
+                ["notify-send", "xborder", "xborders terminated due to no compositor."]
+            )
+            exit(1)
+        ctx.save()
+
+        win_data = get_win()
+        if win_data != None:
+            draw.draw_rectangle(
+                ctx,
+                win_data[0][0],
+                win_data[0][1],
+                win_data[1][0],
+                win_data[1][1],
+                BORDER_RADIUS,
+                BORDER_WIDTH,
+                [0, 0, 0, 0],
+                [BORDER_R, BORDER_G, BORDER_B, BORDER_A],
+            )
+
+            self.set_accept_focus(False)
+            self.set_focus_on_map(False)
+            self.input_shape_combine_region(cairo.Region())
+            self.rect_x = None
+            self.rect_y = None
+        else:
+            self.set_accept_focus(True)
+            self.set_focus_on_map(True)
+            self.input_shape_combine_region(cairo.Region(rectangle))
+
+        if self.rect_x and self.rect_y:
+            if DESKTOP_DRAG_STRESS_TOY:
+                current = get_mouse_location()
+                draw.draw_rectangle(
+                    ctx,
+                    self.rect_x,
+                    self.rect_y,
+                    current[0] - self.rect_x,
+                    current[1] - self.rect_y,
+                    0,
+                    4,
+                    [BORDER_R, BORDER_G, BORDER_B, 0.5],
+                    [BORDER_R, BORDER_G, BORDER_B, 0.85],
+                )
+
+        ctx.restore()
+        self.queue_draw()
+
 
 def main():
-	win = Highlight();
-	win.connect("destroy", Gtk.main_quit);
-	win.set_keep_above(True);
-	win.set_title("Highlight")
+    get_args()
+    win = Highlight()
+    win.connect("destroy", Gtk.main_quit)
+    win.set_keep_above(True)
+    win.set_title("Highlight")
 
-	win.show_all()
+    win.show_all()
 
-	Gtk.main()
+    Gtk.main()
 
-if __name__=="__main__":
-	try:
-		main()
-	except KeyboardInterrupt:
-		exit(0)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        exit(0)
 else:
-	print("This program is not meant to be imported to other Python modules. Please run xborders as a standalone script!")
+    print(
+        "This program is not meant to be imported to other Python modules. Please run xborders as a standalone script!"
+    )
