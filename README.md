@@ -13,6 +13,17 @@ Make sure you have these!
 * pycairo (Tested with version 1.21.0, `pip install pycairo`)
 * xdotool (Tested with version 3.20211022.1 `sudo pacman -S xdotool`)
 * gtk
+* a compositor ([picom](https://github.com/yshui/picom) is what I am using or you can use anoother compositor)
+
+### Note for compositor
+If you don't want your entire screen blurred please add `class_g = 'xborder'` to your blur-exclude!
+```
+blur-background-exclude = [
+  # prevents picom from blurring the background
+  "class_g   = 'xborder'",
+  ...
+];
+```
 
 ## xborder:
 ![image](https://user-images.githubusercontent.com/82973108/160370439-8b7a5feb-c186-4954-a029-b718b59fd957.png)
