@@ -92,6 +92,11 @@ def get_args():
         default="0x0x1920x1080",
         help="The desktop rectangle where you can use the stress toy. Format is XxYxWxH (the lower cases x's are required) or WxH where X and Y will be 0")
     parser.add_argument(
+        "--border-mode",
+        type=str,
+        default="outside",
+        help="Whether to place the border on the outside, inside or in the center of windows. Values are `outside`, `inside`, `center`")
+    parser.add_argument(
         "--disable-drag-stress-toy", action="store_const", const=False, default=True
     )
     args = parser.parse_args()
@@ -116,6 +121,7 @@ def get_args():
     global DESKTOP_DRAG_STRESS_TOY
     global BORDER_RADIUS
     global BORDER_WIDTH
+    global BORDER_MODE
     global BORDER_R
     global BORDER_G
     global BORDER_B
@@ -130,8 +136,17 @@ def get_args():
     BORDER_G = args.border_green
     BORDER_B = args.border_blue
     BORDER_A = args.border_alpha
-    # SCREEN_TOP_PADDING = args.screen_top_padding
-    SCREEN_RECT = args.screen_rect;
+    SCREEN_RECT = args.screen_rect
+    if args.border_mode == "inside":
+        BORDER_MODE = 0
+    elif args.border_mode == "outside":
+        BORDER_MODE = 1
+    elif args.border_mode == "center":
+        BORDER_MODE = 2
+    else:
+        raise ValueError(f"Invalid border_mode '{args.border_mode}'")
+        #print(f"Invalid border_mode '{args.border_mode}'", file=stderr);
+        #exit(1);
 
     return
 
@@ -270,12 +285,23 @@ class Highlight(Gtk.Window):
 
         win_data = get_win()
         if win_data != None:
+            x, y, w, h = win_data[0][0], win_data[0][1], win_data[1][0], win_data[1][1]
+            if BORDER_MODE == 0:
+                x += BORDER_WIDTH / 2;
+                y += BORDER_WIDTH / 2;
+                w -= BORDER_WIDTH;
+                h -= BORDER_WIDTH;
+            elif BORDER_MODE == 1:
+                x -= BORDER_WIDTH / 2;
+                y -= BORDER_WIDTH / 2;
+                w += BORDER_WIDTH;
+                h += BORDER_WIDTH;
             draw.draw_rectangle(
                 ctx,
-                win_data[0][0],
-                win_data[0][1],
-                win_data[1][0],
-                win_data[1][1],
+                x,
+                y,
+                w,
+                h,
                 BORDER_RADIUS,
                 BORDER_WIDTH,
                 [0, 0, 0, 0],
