@@ -5,7 +5,7 @@ Active window border replacement for window managers.
 ```sh
 git clone https://github.com/deter0/xborder
 cd xborder
-chmod +xborders
+chmod +x xborders
 ./xborders --help
 ```
 ### Dependencies
@@ -13,7 +13,7 @@ Make sure you have these!
 * pycairo (Tested with version 1.21.0, `pip install pycairo`)
 * xdotool (Tested with version 3.20211022.1 `sudo pacman -S xdotool`)
 * gtk
-* a compositor ([picom](https://github.com/yshui/picom) is what I am using or you can use anoother compositor)
+* a compositor ([picom](https://github.com/yshui/picom) is what I am using or you can use another compositor)
 
 ### Note for compositor
 If you don't want your entire screen blurred please add `class_g = 'xborder'` to your blur-exclude!
