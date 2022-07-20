@@ -5,8 +5,9 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
+gi.require_version("Wnck", "3.0")
 
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, Wnck
 import draw
 
 import re
@@ -152,43 +153,19 @@ def get_args():
     return
 
 
-def get_win():
-    completed_process = subprocess.run(
-        ["xdotool", "getactivewindow", "getwindowgeometry"], capture_output=True
-    )
-    if completed_process.returncode != 0:
-        return None
-    process_stdout = completed_process.stdout.decode("utf-8")
-    numbers = [int(x) for x in re.findall("[-0-9]+", process_stdout)]
-    x = numbers[1]
-    y = numbers[2]
-    width = numbers[4]
-    height = numbers[5]
+def get_win(wnck_screen):
+    x, y, width, height = wnck_screen.get_active_window().get_geometry()
     return ((x, y), (width, height))
 
 is_fullscreen_cache = 0
 last_is_fullscreen_test = True
-def is_fullscreen() -> bool:
+def is_fullscreen(wnck_screen) -> bool:
     global is_fullscreen_cache, last_is_fullscreen_test
     if (time.time() - last_is_fullscreen_test < 0.5):
         return is_fullscreen_cache
 
-    completed_process = subprocess.run(
-        ["xdotool", "getactivewindow"], capture_output=True
-    )
-    if completed_process.returncode != 0:
-        return True
-    process_stdout = completed_process.stdout.decode("utf-8")
-    
-    completed_process = subprocess.run(
-        ["xprop", "-id", process_stdout, "_NET_WM_STATE"], capture_output=True
-    )
-    if (completed_process.returncode != 0):
-        sys.stderr.write("Error getting _NET_WM_STATE of window.\n")
-        return False
-    process_stdout2 = completed_process.stdout.decode("utf-8")
-
-    is_fullscreen_cache = "_NET_WM_STATE_FULLSCREEN" in process_stdout2
+    state = wnck_screen.get_active_window().get_state()
+    is_fullscreen_cache = state == Wnck.WindowState.FULLSCREEN
     last_is_fullscreen_test = time.time()
 
     return is_fullscreen_cache
@@ -242,6 +219,8 @@ class Highlight(Gtk.Window):
     def __init__(self, rect):
         super().__init__(type=Gtk.WindowType.POPUP)
 
+        self.wnck_screen = Wnck.Screen.get_default()
+        self.wnck_screen.force_update()
         self.input_rect = rect;
         self.set_app_paintable(True)
         screen = self.get_screen()
@@ -311,8 +290,8 @@ class Highlight(Gtk.Window):
             self.notified_compositor = False;
         ctx.save()
 
-        if (not is_fullscreen()):
-            win_data = get_win()
+        if (not is_fullscreen(self.wnck_screen)):
+            win_data = get_win(self.wnck_screen)
             if win_data != None:
                 x, y, w, h = win_data[0][0], win_data[0][1], win_data[1][0], win_data[1][1]
                 if BORDER_MODE == 0:
@@ -339,7 +318,8 @@ class Highlight(Gtk.Window):
 
                 self.set_accept_focus(False)
                 self.set_focus_on_map(False)
-                self.input_shape_combine_region(cairo.Region())
+                #TODO: removing the below line is ok if the script works without it on many systems
+                #self.input_shape_combine_region(cairo.Region())
                 self.rect_x = None
                 self.rect_y = None
 
