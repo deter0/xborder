@@ -11,7 +11,7 @@ def draw_rectangle(
     border_radius: int,
     border_size: int,
     color: list[int],
-    border_color: list[int] | None,
+    border_color: list[int],
 ) -> None:
     ctx.set_source_rgba(color[0] / 255, color[1] / 255, color[2] / 255, color[3])
     if border_radius > 0:
