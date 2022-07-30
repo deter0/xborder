@@ -11,7 +11,7 @@ chmod +x xborders
 ### Dependencies
 Make sure you have these!
 * pycairo (Tested with version 1.21.0, `pip install pycairo`)
-* xdotool (Tested with version 3.20211022.1 `sudo pacman -S xdotool`)
+* libwnck (Tested with version 40.1-1 `sudo pacman -S libwnck3`)
 * gtk
 * a compositor ([picom](https://github.com/yshui/picom) is what I am using or you can use another compositor) although even compton with work, just something that supports transparent windows.
 
