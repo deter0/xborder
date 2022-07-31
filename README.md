@@ -20,7 +20,7 @@ If you don't want your entire screen blurred please add `class_g = 'xborder'` to
 ```
 blur-background-exclude = [
   # prevents picom from blurring the background
-  "class_g   = 'xborder'",
+  "role   = 'xborder'",
   ...
 ];
 ```

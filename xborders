@@ -23,7 +23,7 @@ BORDER_R = 123
 BORDER_G = 88
 BORDER_B = 220
 BORDER_A = 1
-
+BORDERED_WINDOW = None
 
 def set_border_rgba(args):
     literal_value = 0
@@ -128,14 +128,22 @@ def get_args():
 
     return
 
-
+# Every call of get_active_window() instantiates a new
+# window object, in this way, the active_window object
+# is destroyed in this scope but only the focused
+# window remains.
 def get_win(wnck_screen):
-	active_window = wnck_screen.get_active_window()
-	if (active_window):
-		x, y, width, height = active_window.get_geometry()
-		return ((x, y), (width, height))
-	else:
-		return None
+    global BORDERED_WINDOW
+    active_window = wnck_screen.get_active_window()
+    
+    if active_window != BORDERED_WINDOW:
+        BORDERED_WINDOW = active_window
+
+    if BORDERED_WINDOW is not None:
+        x, y, width, height = BORDERED_WINDOW.get_geometry()
+        return ((x, y), (width, height))
+    else:
+        return None
 
 is_fullscreen_cache = 0
 last_is_fullscreen_test = True
@@ -179,11 +187,11 @@ class Highlight(Gtk.Window):
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
         self.set_visual(visual)
-        try: # because deprecated
-            self.set_wmclass("xborders", "xborder")
-        except:
-            pass
-        self.show_all()
+
+        # As described here: https://docs.gtk.org/gtk3/method.Window.set_wmclass.html
+        # Picom blur exclusion would be:
+        # "role   = 'xborder'",
+        self.set_role("xborder")
 
         self.resize(screen_width, screen_height)
         self.move(0, 0)
@@ -226,34 +234,45 @@ class Highlight(Gtk.Window):
             self.notified_compositor = False;
         ctx.save()
 
-        if (not is_fullscreen(self.wnck_screen)):
-            win_data = get_win(self.wnck_screen)
-            if win_data != None:
-                x, y, w, h = win_data[0][0], win_data[0][1], win_data[1][0], win_data[1][1]
-                if BORDER_MODE == 0:
-                    x += BORDER_WIDTH / 2;
-                    y += BORDER_WIDTH / 2;
-                    w -= BORDER_WIDTH;
-                    h -= BORDER_WIDTH;
-                elif BORDER_MODE == 1:
-                    x -= BORDER_WIDTH / 2;
-                    y -= BORDER_WIDTH / 2;
-                    w += BORDER_WIDTH;
-                    h += BORDER_WIDTH;
-                draw.draw_rectangle(
-                    ctx,
-                    x,
-                    y,
-                    w,
-                    h,
-                    BORDER_RADIUS,
-                    BORDER_WIDTH,
-                    [0, 0, 0, 0],
-                    [BORDER_R, BORDER_G, BORDER_B, BORDER_A],
-                )
+        win_data = get_win(self.wnck_screen)
+        if not is_fullscreen(self.wnck_screen) and win_data is not None:
+            x, y, w, h = win_data[0][0], win_data[0][1], win_data[1][0], win_data[1][1]
 
-        ctx.restore()
-        self.queue_draw()
+            # Inside
+            if BORDER_MODE == 0:
+                draw_area = [x, y, w, h]
+                x += BORDER_WIDTH / 2
+                y += BORDER_WIDTH / 2
+                w -= BORDER_WIDTH
+                h -= BORDER_WIDTH
+
+            # Outside
+            elif BORDER_MODE == 1:
+                draw_area = [x-(BORDER_WIDTH), y-(BORDER_WIDTH), w+BORDER_WIDTH*2, h+BORDER_WIDTH*2]
+                x -= BORDER_WIDTH / 2
+                y -= BORDER_WIDTH / 2
+                w += BORDER_WIDTH
+                h += BORDER_WIDTH
+
+            # Center
+            elif BORDER_MODE == 2:
+                draw_area = [x-(BORDER_WIDTH/2), y-(BORDER_WIDTH/2), w+BORDER_WIDTH, h+BORDER_WIDTH]
+    
+            draw.draw_rectangle(ctx, x, y, w, h,
+                BORDER_RADIUS,
+                BORDER_WIDTH,
+                [0, 0, 0, 0],
+                [BORDER_R, BORDER_G, BORDER_B, BORDER_A],
+            )
+            ctx.restore()
+            # One has to update the whole area acounting for borders, if not
+            # artifacts will appear.
+            self.queue_draw_area(draw_area[0], draw_area[1], draw_area[2], draw_area[3])
+
+        # It draws nothing, only used to queue another
+        # frame in case of fullscreen or no window focused.
+        elif is_fullscreen(self.wnck_screen) or win_data is None:
+            self.queue_draw()
 
 
 def main():
