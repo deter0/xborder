@@ -23,7 +23,6 @@ BORDER_R = 123
 BORDER_G = 88
 BORDER_B = 220
 BORDER_A = 1
-BORDERED_WINDOW = None
 
 def set_border_rgba(args):
     literal_value = 0
@@ -128,22 +127,13 @@ def get_args():
 
     return
 
-# Every call of get_active_window() instantiates a new
-# window object, in this way, the active_window object
-# is destroyed in this scope but only the focused
-# window remains.
 def get_win(wnck_screen):
-    global BORDERED_WINDOW
     active_window = wnck_screen.get_active_window()
     
-    if active_window != BORDERED_WINDOW:
-        BORDERED_WINDOW = active_window
-
-    if BORDERED_WINDOW is not None:
-        x, y, width, height = BORDERED_WINDOW.get_geometry()
-        return ((x, y), (width, height))
-    else:
-        return None
+    if active_window is not None:
+        x, y, width, height = active_window.get_geometry()
+        return [x, y, width, height]
+    return None
 
 is_fullscreen_cache = 0
 last_is_fullscreen_test = True
@@ -207,9 +197,7 @@ class Highlight(Gtk.Window):
         self.set_focus_on_map(False)
 
         self.drawingarea = Gtk.DrawingArea()
-        self.drawingarea.set_events(
-            Gdk.EventMask.EXPOSURE_MASK
-        )
+        self.drawingarea.set_events(Gdk.EventMask.EXPOSURE_MASK)
         self.add(self.drawingarea)
         self.input_shape_combine_region(cairo.Region())
 
@@ -218,6 +206,7 @@ class Highlight(Gtk.Window):
     notified_compositor = False
     rect_x = None
     rect_y = None
+
     def _on_draw(self, _wid, ctx):
         if not screen.is_composited():
             self.move(1e6, 1e6) # move it off screen
@@ -236,7 +225,7 @@ class Highlight(Gtk.Window):
 
         win_data = get_win(self.wnck_screen)
         if not is_fullscreen(self.wnck_screen) and win_data is not None:
-            x, y, w, h = win_data[0][0], win_data[0][1], win_data[1][0], win_data[1][1]
+            x, y, w, h = win_data
 
             # Inside
             if BORDER_MODE == 0:
@@ -258,10 +247,9 @@ class Highlight(Gtk.Window):
             elif BORDER_MODE == 2:
                 draw_area = [x-(BORDER_WIDTH/2), y-(BORDER_WIDTH/2), w+BORDER_WIDTH, h+BORDER_WIDTH]
     
-            draw.draw_rectangle(ctx, x, y, w, h,
+            draw.draw_border(ctx, x, y, w, h,
                 BORDER_RADIUS,
                 BORDER_WIDTH,
-                [0, 0, 0, 0],
                 [BORDER_R, BORDER_G, BORDER_B, BORDER_A],
             )
             ctx.restore()
@@ -271,7 +259,9 @@ class Highlight(Gtk.Window):
 
         # It draws nothing, only used to queue another
         # frame in case of fullscreen or no window focused.
+        # This is bad, performance tanks given the case.
         elif is_fullscreen(self.wnck_screen) or win_data is None:
+            ctx.restore()
             self.queue_draw()
 
 

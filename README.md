@@ -16,7 +16,7 @@ Make sure you have these!
 * a compositor ([picom](https://github.com/yshui/picom) is what I am using or you can use another compositor) although even compton with work, just something that supports transparent windows.
 
 ### Note for compositor
-If you don't want your entire screen blurred please add `class_g = 'xborder'` to your blur-exclude!
+If you don't want your entire screen blurred please add `role = 'xborder'` to your blur-exclude!
 ```
 blur-background-exclude = [
   # prevents picom from blurring the background
