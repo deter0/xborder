@@ -23,6 +23,8 @@ BORDER_R = 123
 BORDER_G = 88
 BORDER_B = 220
 BORDER_A = 1
+VIEWABLE_WINDOW_MAP_UPDATE_FREQUENCY = 0.5
+VIEWABLE_WINDOW_MAP_CLEANUP_FREQUENCY = 60.0
 
 
 def set_border_rgba(args):
@@ -173,6 +175,10 @@ class Highlight(Gtk.Window):
     def __init__(self):
         super().__init__(type=Gtk.WindowType.POPUP)
 
+        # The dict looks like the following:
+        # {33562868: {"lastUpdate": 1234, "isViewable": True}}
+        self.viewable_window_map = {}
+        self.last_viewable_window_map_cleanup = time.time()
         self.wnck_screen = Wnck.Screen.get_default()
         self.wnck_screen.force_update()
         self.set_app_paintable(True)
@@ -207,6 +213,46 @@ class Highlight(Gtk.Window):
 
         self.connect("draw", self._on_draw)
 
+    def _query_window_viewable(self, window_id):
+        completed_process = subprocess.run(
+            ["xwininfo", "-id", f"{window_id}"], capture_output=True
+        )
+        if completed_process.returncode != 0:
+            return None
+        process_stdout = completed_process.stdout.decode("utf-8")
+        is_viewable = [x == "IsViewable" for x in re.findall("(IsViewable|IsUnviewable)", process_stdout)]
+        return is_viewable[0]
+
+    def _update_viewable_window_map(self, window_id):
+        is_viewable = self._query_window_viewable(window_id)
+        self.viewable_window_map[window_id] = {"lastUpdate": time.time(), "isViewable": is_viewable}
+        return is_viewable
+
+    def _is_window_viewable(self, window_id):
+        if window_id in self.viewable_window_map:
+            last_update = self.viewable_window_map[window_id]["lastUpdate"]
+            if (time.time() - last_update < VIEWABLE_WINDOW_MAP_UPDATE_FREQUENCY):
+                return self.viewable_window_map[window_id]["isViewable"]
+            else:
+                return self._update_viewable_window_map(window_id)
+        else:
+            return self._update_viewable_window_map(window_id)
+
+    def get_visible_windows(self):
+        if (time.time() - self.last_viewable_window_map_cleanup > VIEWABLE_WINDOW_MAP_CLEANUP_FREQUENCY):
+            self.last_viewable_window_map_cleanup = time.time()
+            self.viewable_window_map = {}
+
+        for window in self.wnck_screen.get_windows():
+            if self._is_window_viewable(window.get_xid()):
+                if window:
+                    x, y, width, height = window.get_geometry()
+                    yield ((x, y), (width, height))
+                else:
+                    yield None
+            else:
+                yield None
+
     notified_compositor = False
     rect_x = None
     rect_y = None
@@ -227,30 +273,30 @@ class Highlight(Gtk.Window):
         ctx.save()
 
         if (not is_fullscreen(self.wnck_screen)):
-            win_data = get_win(self.wnck_screen)
-            if win_data != None:
-                x, y, w, h = win_data[0][0], win_data[0][1], win_data[1][0], win_data[1][1]
-                if BORDER_MODE == 0:
-                    x += BORDER_WIDTH / 2;
-                    y += BORDER_WIDTH / 2;
-                    w -= BORDER_WIDTH;
-                    h -= BORDER_WIDTH;
-                elif BORDER_MODE == 1:
-                    x -= BORDER_WIDTH / 2;
-                    y -= BORDER_WIDTH / 2;
-                    w += BORDER_WIDTH;
-                    h += BORDER_WIDTH;
-                draw.draw_rectangle(
-                    ctx,
-                    x,
-                    y,
-                    w,
-                    h,
-                    BORDER_RADIUS,
-                    BORDER_WIDTH,
-                    [0, 0, 0, 0],
-                    [BORDER_R, BORDER_G, BORDER_B, BORDER_A],
-                )
+            for win_data in self.get_visible_windows():
+                if win_data != None:
+                    x, y, w, h = win_data[0][0], win_data[0][1], win_data[1][0], win_data[1][1]
+                    if BORDER_MODE == 0:
+                        x += BORDER_WIDTH / 2;
+                        y += BORDER_WIDTH / 2;
+                        w -= BORDER_WIDTH;
+                        h -= BORDER_WIDTH;
+                    elif BORDER_MODE == 1:
+                        x -= BORDER_WIDTH / 2;
+                        y -= BORDER_WIDTH / 2;
+                        w += BORDER_WIDTH;
+                        h += BORDER_WIDTH;
+                    draw.draw_rectangle(
+                        ctx,
+                        x,
+                        y,
+                        w,
+                        h,
+                        BORDER_RADIUS,
+                        BORDER_WIDTH,
+                        [0, 0, 0, 0],
+                        [BORDER_R, BORDER_G, BORDER_B, BORDER_A],
+                    )
 
         ctx.restore()
         self.queue_draw()
