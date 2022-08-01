@@ -7,7 +7,7 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("Wnck", "3.0")
 
-from gi.repository import Gtk, Gdk, Wnck
+from gi.repository import Gtk, Gdk, Wnck, GLib
 import draw
 
 import re
@@ -23,6 +23,7 @@ BORDER_R = 123
 BORDER_G = 88
 BORDER_B = 220
 BORDER_A = 1
+BORDERED_WINDOW = None
 
 def set_border_rgba(args):
     literal_value = 0
@@ -42,12 +43,22 @@ def set_border_rgba(args):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", "-c", type=str, help="The path to the config file")
     parser.add_argument(
-        "--border-radius", type=int, default=14, help="The border radius, in pixels"
+            "--config", "-c", 
+            type=str, 
+            help="The path to the config file"
     )
     parser.add_argument(
-        "--border-width", type=int, default=4, help="The border width in pixels"
+        "--border-radius", 
+        type=int, 
+        default=14, 
+        help="The border radius, in pixels"
+    )
+    parser.add_argument(
+        "--border-width", 
+        type=int, 
+        default=4, 
+        help="The border width in pixels"
     )
     parser.add_argument(
         "--border-red",
@@ -82,7 +93,8 @@ def get_args():
         "--border-mode",
         type=str,
         default="outside",
-        help="Whether to place the border on the outside, inside or in the center of windows. Values are `outside`, `inside`, `center`")
+        help="Whether to place the border on the outside, inside or in the center of windows. Values are `outside`, `inside`, `center`"
+    )
     args = parser.parse_args()
     if args.border_rgba is not None:
         set_border_rgba(args)
@@ -123,33 +135,26 @@ def get_args():
     elif args.border_mode == "center":
         BORDER_MODE = 2
     else:
-        raise ValueError(f"Invalid border_mode '{args.border_mode}'")
+        raise ValueError(f"Invalid border_mode: '{args.border_mode}'.")
 
     return
 
-def get_win(wnck_screen):
-    active_window = wnck_screen.get_active_window()
-    
-    if active_window is not None:
-        x, y, width, height = active_window.get_geometry()
-        return [x, y, width, height]
-    return None
+def get_win(window):
+    x, y, width, height = window.get_geometry()
+    return [x, y, width, height]
 
-is_fullscreen_cache = 0
-last_is_fullscreen_test = True
-def is_fullscreen(wnck_screen) -> bool:
-	global is_fullscreen_cache, last_is_fullscreen_test
-	if (time.time() - last_is_fullscreen_test < 0.5):
-		return is_fullscreen_cache
+def win_changed(window):
+    global BORDERED_WINDOW
+    if window != BORDERED_WINDOW:
+        BORDERED_WINDOW = window
+        return True
+    return False
 
-	active_window = wnck_screen.get_active_window()
-	if (active_window):
-		state = active_window.get_state()
-		is_fullscreen_cache = state == Wnck.WindowState.FULLSCREEN
-	else:
-		is_fullscreen_cache = False
-	last_is_fullscreen_test = time.time()
-	return is_fullscreen_cache
+def is_fullscreen(window) -> bool:
+    if window is not None:
+        state = window.get_state()
+        return state == Wnck.WindowState.FULLSCREEN
+    return False
 
 def get_screen_size(display): # TODO: Multiple monitor size support
     mon_geoms = [
@@ -200,84 +205,104 @@ class Highlight(Gtk.Window):
         self.drawingarea.set_events(Gdk.EventMask.EXPOSURE_MASK)
         self.add(self.drawingarea)
         self.input_shape_combine_region(cairo.Region())
-
         self.connect("draw", self._on_draw)
 
-    notified_compositor = False
-    rect_x = None
-    rect_y = None
+        self.notified_compositor = False
+        self.connect("destroy", Gtk.main_quit)
+        self.set_keep_above(True)
+        self.set_title("xborders")
+        self.show_all()
 
-    def _on_draw(self, _wid, ctx):
+        self.border_path = [0, 0, 0, 0]
+        self.draw_area = [0, 0, 0, 0]
+        self.current_window_geometry = None
+        self.screen_painted = True
+
+        GLib.idle_add(self._poll)
+
+    def _prepare_area_path(self, active_window):
+        x, y, w, h = get_win(active_window)
+        self.current_window_geometry = active_window.get_geometry()
+
+        # Inside
+        if BORDER_MODE == 0:
+            self.draw_area = [x, y, w, h]
+            x += BORDER_WIDTH / 2
+            y += BORDER_WIDTH / 2
+            w -= BORDER_WIDTH
+            h -= BORDER_WIDTH
+
+        # Outside
+        elif BORDER_MODE == 1:
+            self.draw_area = [x-(BORDER_WIDTH), y-(BORDER_WIDTH), w+BORDER_WIDTH*2, h+BORDER_WIDTH*2]
+            x -= BORDER_WIDTH / 2
+            y -= BORDER_WIDTH / 2
+            w += BORDER_WIDTH
+            h += BORDER_WIDTH
+
+        # Center
+        elif BORDER_MODE == 2:
+            self.draw_area = [x-(BORDER_WIDTH/2), y-(BORDER_WIDTH/2), w+BORDER_WIDTH, h+BORDER_WIDTH]
+        self.border_path = [x, y, w, h]
+
+
+    # This function runs when there is nothing to do.
+    # When a change is detected, it will queue a draw,
+    # only draw once and keep polling for new changes.
+    def _poll(self):
+        # This is a hack, event driven drawing would be so much better.
+        # If this function doesn't sleep, it will use 100% of a CPU core.
+        time.sleep(0.01)
+
         if not screen.is_composited():
             self.move(1e6, 1e6) # move it off screen
             if (self.notified_compositor == True):
-                return;
+                return True
             else:
-                subprocess.Popen(
-                    ["notify-send", "xborder", "xborders requires a compositor. Resuming once a compositor is found."]
-                )
-                self.notified_compositor = True;
+                subprocess.Popen(["notify-send", "xborder", "xborders requires a compositor. Resuming once a compositor is found."])
+                self.notified_compositor = True
         else:
             if (self.notified_compositor == True):
-                self.move(0, 0);
-            self.notified_compositor = False;
+                self.move(0, 0)
+
+            self.notified_compositor = False
+
+            active_window = self.wnck_screen.get_active_window()
+
+            if not is_fullscreen(active_window) and active_window is not None:
+                # If active window is changed or the active window geometry changes or screen is not painted
+                if win_changed(active_window) or self.current_window_geometry != active_window.get_geometry() or not self.screen_painted:
+                    self.screen_painted = True
+                    self._prepare_area_path(active_window)
+                    self.queue_draw()
+                    return True
+
+            if (active_window is None or is_fullscreen(active_window)) and self.screen_painted:
+                self.screen_painted = False
+                self.border_path = [0, 0, 0, 0]
+                self.queue_draw()
+                return True
+
+        # This function must return True in order to kepp running
+        return True
+
+    def _on_draw(self, _wid, ctx):
         ctx.save()
-
-        win_data = get_win(self.wnck_screen)
-        if not is_fullscreen(self.wnck_screen) and win_data is not None:
-            x, y, w, h = win_data
-
-            # Inside
-            if BORDER_MODE == 0:
-                draw_area = [x, y, w, h]
-                x += BORDER_WIDTH / 2
-                y += BORDER_WIDTH / 2
-                w -= BORDER_WIDTH
-                h -= BORDER_WIDTH
-
-            # Outside
-            elif BORDER_MODE == 1:
-                draw_area = [x-(BORDER_WIDTH), y-(BORDER_WIDTH), w+BORDER_WIDTH*2, h+BORDER_WIDTH*2]
-                x -= BORDER_WIDTH / 2
-                y -= BORDER_WIDTH / 2
-                w += BORDER_WIDTH
-                h += BORDER_WIDTH
-
-            # Center
-            elif BORDER_MODE == 2:
-                draw_area = [x-(BORDER_WIDTH/2), y-(BORDER_WIDTH/2), w+BORDER_WIDTH, h+BORDER_WIDTH]
-    
-            draw.draw_border(ctx, x, y, w, h,
+        if self.border_path != [0, 0, 0, 0]:
+            draw.draw_border(ctx, 
+                self.border_path[0],
+                self.border_path[1],
+                self.border_path[2],
+                self.border_path[3],
                 BORDER_RADIUS,
                 BORDER_WIDTH,
                 [BORDER_R, BORDER_G, BORDER_B, BORDER_A],
             )
-            ctx.restore()
-            # One has to update the whole area acounting for borders, if not
-            # artifacts will appear.
-            self.queue_draw_area(draw_area[0], draw_area[1], draw_area[2], draw_area[3])
-
-        # It draws nothing, only used to queue another
-        # frame in case of fullscreen or no window focused.
-        # This is bad, performance tanks given the case.
-        elif is_fullscreen(self.wnck_screen) or win_data is None:
-            ctx.restore()
-            self.queue_draw()
-
+        ctx.restore()
 
 def main():
     get_args()
-
-    last_is_fullscreen_test = 0
-    is_fullscreen_cache = False
-
     win = Highlight()
-    win.connect("destroy", Gtk.main_quit)
-    win.set_keep_above(True)
-    win.set_title("xborders")
-
-    win.show_all()
-
     Gtk.main()
 
 
