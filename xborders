@@ -239,7 +239,7 @@ class Highlight(Gtk.Window):
         self.queue_draw()
 
     def _calc_border_geometry(self, window):
-        x, y, w, h =earwindow.get_geometry()
+        x, y, w, h = window.get_geometry()
 
         # Center
         self.border_path = [x, y, w, h]
