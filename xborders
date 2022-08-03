@@ -23,7 +23,6 @@ BORDER_R = 123
 BORDER_G = 88
 BORDER_B = 220
 BORDER_A = 1
-BORDERED_WINDOW = None
 
 def set_border_rgba(args):
     literal_value = 0
@@ -154,10 +153,10 @@ class Highlight(Gtk.Window):
         super().__init__(type=Gtk.WindowType.POPUP)
 
         self.wnck_screen = Wnck.Screen.get_default()
+
         self.set_app_paintable(True)
         self.screen = self.get_screen()
-        visual = self.screen.get_rgba_visual()
-        self.set_visual(visual)
+        self.set_visual(self.screen.get_rgba_visual())
 
         # As described here: https://docs.gtk.org/gtk3/method.Window.set_wmclass.html
         # Picom blur exclusion would be:
@@ -190,9 +189,9 @@ class Highlight(Gtk.Window):
         # Event connection:
         self.connect("draw", self._draw)
         self.connect("destroy", Gtk.main_quit)
-        self.wnck_screen.connect("active-window-changed", self._active_window_changed_event)
         self.connect('composited-changed', self._composited_changed_event)
-   
+        self.wnck_screen.connect("active-window-changed", self._active_window_changed_event)
+
     # This triggers every time the window composited state changes.
     # https://docs.gtk.org/gtk3/signal.Widget.composited-changed.html
     def _composited_changed_event(self, arg):
@@ -215,7 +214,7 @@ class Highlight(Gtk.Window):
             # Find if the window has a 'geometry-changed' event connected.
             signal_id = GObject.signal_lookup('geometry-changed', active_window)
             has_event_connected = GObject.signal_has_handler_pending(active_window, signal_id, 0, False)
-            
+
             # if it doesn't have one.
             if not has_event_connected:
                 # Connect it.
