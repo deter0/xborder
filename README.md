@@ -34,4 +34,4 @@ blur-background-exclude = [
 Configuration options can be found by passing in the argument `--help` on the command line, or by specifying a config file with the argument `-c`. The config file is just a simple json file with the keys being the same as the command-line arguments (except without the "--" at the beginning).
 
 # Updating
-TODO
+cd into the xborders directory and run `git pull origin main`
