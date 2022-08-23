@@ -178,7 +178,7 @@ def get_args():
     elif args.border_mode == "center":
         BORDER_MODE = 2
     else:
-        raise ValueError(f"Invalid border_mode: '{args.border_mode}'.")
+        raise ValueError(f"Invalid border_mode: '{args.border_mode}'. Valid border_modes are: inside, outside and center.")
 
     return
 
