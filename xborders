@@ -18,6 +18,8 @@ import json
 import time
 import os
 import requests
+import threading
+import webbrowser
 
 BORDER_RADIUS = 14
 BORDER_WIDTH = 4
@@ -158,13 +160,34 @@ def get_screen_size(display): # TODO: Multiple monitor size support
 
     return x1 - x0, y1 - y0
 
+def notify_about_version(our_version: float, latest_version: float):
+    notification_string = f"xborders has an update!  [{our_version} 🡢 {latest_version}]"
+    completed_process = subprocess.run(
+        ["notify-send", "--app-name=xborder", "--expire-time=5000", notification_string, "--action=How to Update?", "--action=Ignore Update"],
+        capture_output = True
+    )
+    if (completed_process.returncode == 0):
+        result_string = completed_process.stdout.decode("utf-8")
+        if (result_string == ''):
+            return
+        result = int(result_string)
+        if (result == 1):
+            our_location = os.path.dirname(os.path.abspath(__file__))
+            file = open(our_location + "/.update_ignore.txt", "w")
+            file.write(str(latest_version))
+            file.close()
+        elif (result == 0):
+            webbrowser.open_new_tab("https://github.com/deter0/xborder#updating")
+    else:
+        print("something went wrong in notify-send.")
+
 def notify_version():
     if (NO_VERSION_NOTIFS):
         return
     try:
         our_location = os.path.dirname(os.path.abspath(__file__))
 
-        version_file = open(our_location + "/version.txt")
+        version_file = open(our_location + "/version.txt", "r")
         our_version_string = version_file.read()
         version_file.close()
 
@@ -172,14 +195,21 @@ def notify_version():
         request = requests.get(url, allow_redirects=True)
         latest_version_string = request.content.decode("utf-8")
 
-        our_version = float(our_version_string)
         latest_version = float(latest_version_string)
+        our_version = float(our_version_string)
+        print(our_version, latest_version)
+
+        if (os.path.isfile(our_location + "/.update_ignore.txt")):
+            ignore_version_file = open(our_location + "/.update_ignore.txt", "r")
+            ignored_version_string = ignore_version_file.read()
+            ignored_version = float(ignored_version_string)
+            if (ignored_version == latest_version):
+                return
 
         if (our_version < latest_version):
-            notification_string = f"xborders has an update!  (<b>{our_version} -> {latest_version}</b>)"
-            subprocess.Popen(["notify-send", "xborder", notification_string])
+            threading._start_new_thread(notify_about_version, (our_version, latest_version))
     except:
-        print("ERror!")
+        subprocess.Popen(["notify-send", "--app-name=xborders", "ERROR: xborders couldn't get latest version!"])
 
 
 
@@ -246,7 +276,7 @@ class Highlight(Gtk.Window):
             self.move(0, 0)
         else:
             self.move(1e6, 1e6)
-            subprocess.Popen(["notify-send", "xborder", "xborders requires a compositor. Resuming once a compositor is running."])
+            subprocess.Popen(["notify-send", "--app-name=xborder", "xborders requires a compositor. Resuming once a compositor is running."])
 
     # Avoid memory leaks
     old_window = None
