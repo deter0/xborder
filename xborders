@@ -45,6 +45,14 @@ def set_border_rgba(args):
     args.border_blue = literal_value >> (1 * 8) & 0xFF
     args.border_alpha = (literal_value >> (0 * 8) & 0xFF) / 255  # map from 0 to 1
 
+def get_version():
+    our_location = os.path.dirname(os.path.abspath(__file__))
+
+    version_file = open(our_location + "/version.txt", "r")
+    our_version_string = version_file.read()
+    version_file.close()
+
+    return float(our_version_string)
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -129,7 +137,15 @@ def get_args():
         type = int,
         help = "How much to increase the windows size downwards."
     )
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Print the version of xborders and exit."
+    )
     args = parser.parse_args()
+    if (args.version is True):
+        print(f"xborders v{get_version()}")
+        exit(0)
     if args.border_rgba is not None:
         set_border_rgba(args)
 
@@ -219,17 +235,12 @@ def notify_version():
     try:
         our_location = os.path.dirname(os.path.abspath(__file__))
 
-        version_file = open(our_location + "/version.txt", "r")
-        our_version_string = version_file.read()
-        version_file.close()
-
         url = "https://raw.githubusercontent.com/deter0/xborder/main/version.txt" # Maybe hardcoding it is a bad idea
         request = requests.get(url, allow_redirects=True)
         latest_version_string = request.content.decode("utf-8")
 
         latest_version = float(latest_version_string)
-        our_version = float(our_version_string)
-        print(our_version, latest_version)
+        our_version = get_version()
 
         if (os.path.isfile(our_location + "/.update_ignore.txt")):
             ignore_version_file = open(our_location + "/.update_ignore.txt", "r")
