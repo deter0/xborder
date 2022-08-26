@@ -199,13 +199,19 @@ def get_args():
     return
 
 def get_screen_size(display): # TODO: Multiple monitor size support
-    mon_geoms = [{"r": display.get_monitor(i).get_geometry(), "s": display.get_monitor(i).get_scale_factor()} for i in range(display.get_n_monitors())]
-    print(mon_geoms[0])
-    x0 = min(w["r"].x for w in mon_geoms)
-    y0 = min(w["r"].y for w in mon_geoms)
-    x1 = max(w["r"].x + w["r"].width for w in mon_geoms)
-    y1 = max(w["r"].y + w["r"].height for w in mon_geoms)
-    s = max(w["s"] for w in mon_geoms)
+    mon_geoms = [
+        {
+            "rect": display.get_monitor(i).get_geometry(), 
+            "scale": display.get_monitor(i).get_scale_factor()
+        } 
+        for i in range(display.get_n_monitors())
+    ]
+
+    x0 = min(m["rect"].x for m in mon_geoms)
+    y0 = min(m["rect"].y for m in mon_geoms)
+    x1 = max(m["rect"].x + m["rect"].width for m in mon_geoms)
+    y1 = max(m["rect"].y + m["rect"].height for m in mon_geoms)
+    s = max(m["scale"] for m in mon_geoms)
 
     return (x1 - x0), (y1 - y0), s
 
@@ -387,10 +393,10 @@ class Highlight(Gtk.Window):
     def _calc_border_geometry(self, window):
         x, y, w, h = window.get_geometry()
         
-        w = w/self.scale
-        h = h/self.scale
-        x = x/self.scale
-        y = y/self.scale
+        w /= self.scale
+        h /= self.scale
+        x /= self.scale
+        y /= self.scale
 
         # Inside
         if BORDER_MODE == 0:
