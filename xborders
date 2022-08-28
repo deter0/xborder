@@ -21,6 +21,7 @@ import requests
 import threading
 import webbrowser
 
+VERSION = 3.1
 BORDER_RADIUS = 14
 BORDER_WIDTH = 4
 BORDER_R = 123
@@ -46,13 +47,7 @@ def set_border_rgba(args):
     args.border_alpha = (literal_value >> (0 * 8) & 0xFF) / 255  # map from 0 to 1
 
 def get_version():
-    our_location = os.path.dirname(os.path.abspath(__file__))
-
-    version_file = open(our_location + "/version.txt", "r")
-    our_version_string = version_file.read()
-    version_file.close()
-
-    return float(our_version_string)
+    return VERSION
 
 def get_args():
     parser = argparse.ArgumentParser()
