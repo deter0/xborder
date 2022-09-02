@@ -6,11 +6,14 @@ Active window border replacement for window managers.
 git clone https://github.com/deter0/xborder
 cd xborder
 chmod +x xborders
+pip install -r requirements.txt
 ./xborders --help
 ```
 ### Dependencies
-Make sure you have these!
-* pycairo (Tested with version 1.21.0, `pip install pycairo`)
+Make sure to install dependencies first!
+`pip install -r requirements.txt`
+* pycairo (Tested with version 1.21.0)
+* requests (Tested with version 2.28.1)
 * libwnck (Tested with version 40.1-1 `sudo pacman -S libwnck3`)
 * gtk
 * a compositor ([picom](https://github.com/yshui/picom) is what I am using or you can use another compositor) although even compton with work, just something that supports transparent windows.
