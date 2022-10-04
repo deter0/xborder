@@ -1,37 +1,38 @@
 #!/bin/python3
-import cairo
+import argparse
+import json
+import os
+import subprocess
+import sys
+import threading
+import webbrowser
 
+import cairo
 import gi
+import requests
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("Wnck", "3.0")
 gi.require_version("GObject", "2.0")
+from gi.repository import Gtk, Gdk, Wnck, GObject
 
-from gi.repository import Gtk, Gdk, Wnck, GObject, GLib 
-
-import re
-import subprocess
-import sys
-import argparse
-import json
-import time
-import os
-import requests
-import threading
-import webbrowser
-
+INSIDE = 'inside'
+OUTSIDE = 'outside'
+CENTER = 'center'
+BORDER_MODES = [INSIDE, OUTSIDE, CENTER]
+BORDER_MODE = INSIDE
 BORDER_RADIUS = 14
 BORDER_WIDTH = 4
 BORDER_R = 123
 BORDER_G = 88
 BORDER_B = 220
 BORDER_A = 1
-NO_VERSION_NOTIFS = False
+NO_VERSION_NOTIFY = False
 OFFSETS = [0, 0, 0, 0]
 
+
 def set_border_rgba(args):
-    literal_value = 0
     try:
         literal_value = int(args.border_rgba.replace("#", "0x"), 16)
     except:
@@ -45,6 +46,7 @@ def set_border_rgba(args):
     args.border_blue = literal_value >> (1 * 8) & 0xFF
     args.border_alpha = (literal_value >> (0 * 8) & 0xFF) / 255  # map from 0 to 1
 
+
 def get_version():
     our_location = os.path.dirname(os.path.abspath(__file__))
 
@@ -54,23 +56,24 @@ def get_version():
 
     return float(our_version_string)
 
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-            "--config", "-c", 
-            type=str, 
-            help="The path to the config file"
+        "--config", "-c",
+        type=str,
+        help="The path to the config file"
     )
     parser.add_argument(
-        "--border-radius", 
-        type=int, 
-        default=14, 
+        "--border-radius",
+        type=int,
+        default=14,
         help="The border radius, in pixels"
     )
     parser.add_argument(
-        "--border-width", 
-        type=int, 
-        default=4, 
+        "--border-width",
+        type=int,
+        default=4,
         help="The border width in pixels"
     )
     parser.add_argument(
@@ -115,27 +118,27 @@ def get_args():
     )
     parser.add_argument(
         "--positive-x-offset",
-        default = 0,
-        type = int,
-        help = "How much to increase the windows size to the right."
+        default=0,
+        type=int,
+        help="How much to increase the windows size to the right."
     )
     parser.add_argument(
         "--negative-x-offset",
-        default = 0,
-        type = int,
-        help = "How much to increase the windows size to the left."
+        default=0,
+        type=int,
+        help="How much to increase the windows size to the left."
     )
     parser.add_argument(
         "--positive-y-offset",
-        default = 0,
-        type = int,
-        help = "How much to increase the windows size upwards."
+        default=0,
+        type=int,
+        help="How much to increase the windows size upwards."
     )
     parser.add_argument(
         "--negative-y-offset",
-        default = 0,
-        type = int,
-        help = "How much to increase the windows size downwards."
+        default=0,
+        type=int,
+        help="How much to increase the windows size downwards."
     )
     parser.add_argument(
         "--version",
@@ -143,7 +146,7 @@ def get_args():
         help="Print the version of xborders and exit."
     )
     args = parser.parse_args()
-    if (args.version is True):
+    if args.version is True:
         print(f"xborders v{get_version()}")
         exit(0)
     if args.border_rgba is not None:
@@ -170,7 +173,7 @@ def get_args():
     global BORDER_G
     global BORDER_B
     global BORDER_A
-    global NO_VERSION_NOTIFS
+    global NO_VERSION_NOTIFY
     global OFFSETS
 
     BORDER_RADIUS = args.border_radius
@@ -179,7 +182,7 @@ def get_args():
     BORDER_G = args.border_green
     BORDER_B = args.border_blue
     BORDER_A = args.border_alpha
-    NO_VERSION_NOTIFS = args.disable_version_warning
+    NO_VERSION_NOTIFY = args.disable_version_warning
     OFFSETS = [
         args.positive_x_offset or 0,
         args.positive_y_offset or 0,
@@ -187,18 +190,16 @@ def get_args():
         args.negative_y_offset or 0
     ]
 
-    if args.border_mode == "inside":
-        BORDER_MODE = 0
-    elif args.border_mode == "outside":
-        BORDER_MODE = 1
-    elif args.border_mode == "center":
-        BORDER_MODE = 2
+    if args.border_mode in BORDER_MODES:
+        BORDER_MODE = args.border_mode
     else:
-        raise ValueError(f"Invalid border_mode: '{args.border_mode}'. Valid border_modes are: inside, outside and center.")
+        raise ValueError(
+            f"Invalid border_mode: '{args.border_mode}'. Valid border_modes are: inside, outside and center.")
 
     return
 
-def get_screen_size(display): # TODO: Multiple monitor size support
+
+def get_screen_size(display):  # TODO: Multiple monitor size support
     mon_geoms = [display.get_monitor(i).get_geometry() for i in range(display.get_n_monitors())]
 
     x0 = min(r.x for r in mon_geoms)
@@ -208,52 +209,54 @@ def get_screen_size(display): # TODO: Multiple monitor size support
 
     return x1 - x0, y1 - y0
 
+
 def notify_about_version(our_version: float, latest_version: float):
     notification_string = f"xborders has an update!  [{our_version} 🡢 {latest_version}]"
     completed_process = subprocess.run(
-        ["notify-send", "--app-name=xborder", "--expire-time=5000", notification_string, "--action=How to Update?", "--action=Ignore Update"],
-        capture_output = True
+        ["notify-send", "--app-name=xborder", "--expire-time=5000", notification_string, "--action=How to Update?",
+         "--action=Ignore Update"],
+        capture_output=True
     )
-    if (completed_process.returncode == 0):
+    if completed_process.returncode == 0:
         result_string = completed_process.stdout.decode("utf-8")
-        if (result_string == ''):
+        if result_string == '':
             return
         result = int(result_string)
-        if (result == 1):
+        if result == 1:
             our_location = os.path.dirname(os.path.abspath(__file__))
             file = open(our_location + "/.update_ignore.txt", "w")
             file.write(str(latest_version))
             file.close()
-        elif (result == 0):
+        elif result == 0:
             webbrowser.open_new_tab("https://github.com/deter0/xborder#updating")
     else:
         print("something went wrong in notify-send.")
 
+
 def notify_version():
-    if (NO_VERSION_NOTIFS):
+    if NO_VERSION_NOTIFY:
         return
     try:
         our_location = os.path.dirname(os.path.abspath(__file__))
 
-        url = "https://raw.githubusercontent.com/deter0/xborder/main/version.txt" # Maybe hardcoding it is a bad idea
+        url = "https://raw.githubusercontent.com/deter0/xborder/main/version.txt"  # Maybe hardcoding it is a bad idea
         request = requests.get(url, allow_redirects=True)
         latest_version_string = request.content.decode("utf-8")
 
         latest_version = float(latest_version_string)
         our_version = get_version()
 
-        if (os.path.isfile(our_location + "/.update_ignore.txt")):
+        if os.path.isfile(our_location + "/.update_ignore.txt"):
             ignore_version_file = open(our_location + "/.update_ignore.txt", "r")
             ignored_version_string = ignore_version_file.read()
             ignored_version = float(ignored_version_string)
-            if (ignored_version == latest_version):
+            if ignored_version == latest_version:
                 return
 
-        if (our_version < latest_version):
+        if our_version < latest_version:
             threading._start_new_thread(notify_about_version, (our_version, latest_version))
     except:
         subprocess.Popen(["notify-send", "--app-name=xborders", "ERROR: xborders couldn't get latest version!"])
-
 
 
 class Highlight(Gtk.Window):
@@ -271,12 +274,10 @@ class Highlight(Gtk.Window):
         # Picom blur exclusion would be:
         # "role   = 'xborder'",
         self.set_role("xborder")
-        
-        # We can still set this for old configurations, we don't want to update and have the user confused as to what has happened
-        try:
-            self.set_wmclass("xborders", "xborder")
-        except:
-            pass
+
+        # We can still set this for old configurations, we don't want to update and have the user confused as to what
+        # has happened
+        self.set_wmclass("xborders", "xborder")
 
         self.resize(screen_width, screen_height)
         self.move(0, 0)
@@ -307,7 +308,7 @@ class Highlight(Gtk.Window):
         self.connect('composited-changed', self._composited_changed_event)
         self.wnck_screen.connect("active-window-changed", self._active_window_changed_event)
 
-        # Call inital events
+        # Call initial events
         self._composited_changed_event(None)
         self._active_window_changed_event(None, None)
         self._geometry_changed_event(None)
@@ -319,18 +320,19 @@ class Highlight(Gtk.Window):
             self.move(0, 0)
         else:
             self.move(1e6, 1e6)
-            subprocess.Popen(["notify-send", "--app-name=xborder", "xborders requires a compositor. Resuming once a compositor is running."])
+            subprocess.Popen(["notify-send", "--app-name=xborder",
+                              "xborders requires a compositor. Resuming once a compositor is running."])
 
     # Avoid memory leaks
     old_window = None
     old_signals_to_disconnect = [None, None]
-    # This event will trigger every active window change, it will queue a
-    # border to be drawn and then do nothing.
-    # See:
-    #    Signals available for the Wnck.Screen class: https://lazka.github.io/pgi-docs/Wnck-3.0/classes/Screen.html#signals
-    #    Signals available for the Wnck.Window class: https://lazka.github.io/pgi-docs/Wnck-3.0/classes/Window.html#signals
+
+    # This event will trigger every active window change, it will queue a border to be drawn and then do nothing.
+    # See: Signals available for the Wnck.Screen class:
+    # https://lazka.github.io/pgi-docs/Wnck-3.0/classes/Screen.html#signals Signals available for the Wnck.Window
+    # class: https://lazka.github.io/pgi-docs/Wnck-3.0/classes/Window.html#signals
     def _active_window_changed_event(self, _screen, _previous_active_window):
-        if (self.old_window and len(self.old_signals_to_disconnect) > 0):
+        if self.old_window and len(self.old_signals_to_disconnect) > 0:
             for sig_id in self.old_signals_to_disconnect:
                 GObject.signal_handler_disconnect(self.old_window, sig_id)
 
@@ -364,12 +366,11 @@ class Highlight(Gtk.Window):
 
             self._calc_border_geometry(active_window)
         self.queue_draw()
-    
+
     def _state_changed_event(self, active_window, _changed_mask, new_state):
         if new_state & Wnck.WindowState.FULLSCREEN != 0:
             self._calc_border_geometry(active_window)
         self.queue_draw()
-
 
     # This is weird, "_window_changed" is not necessarily the active window,
     # it is the window which receives the signal of resizing and is not necessarily
@@ -383,33 +384,32 @@ class Highlight(Gtk.Window):
         self.queue_draw()
 
     def _calc_border_geometry(self, window):
-        x, y, w, h = window.get_geometry()
+        x, y, w, h = window.get_client_window_geometry()
 
         # Inside
-        if BORDER_MODE == 0:
+        if BORDER_MODE == INSIDE:
             x += BORDER_WIDTH / 2
             y += BORDER_WIDTH / 2
             w -= BORDER_WIDTH
             h -= BORDER_WIDTH
 
         # Outside
-        elif BORDER_MODE == 1:
+        elif BORDER_MODE == OUTSIDE:
             x -= BORDER_WIDTH / 2
             y -= BORDER_WIDTH / 2
             w += BORDER_WIDTH
             h += BORDER_WIDTH
-        
+
         # Offsets
 
         w += OFFSETS[0] or 0
         h += OFFSETS[1] or 0
-        
+
         x -= OFFSETS[2] or 0
         w += OFFSETS[2] or 0
 
         y -= OFFSETS[3] or 0
         h += OFFSETS[3] or 0
-
 
         # Center
         self.border_path = [x, y, w, h]
@@ -420,7 +420,7 @@ class Highlight(Gtk.Window):
             x, y, w, h = self.border_path
             if BORDER_WIDTH != 0:
                 if BORDER_RADIUS > 0:
-                    degrees = 0.017453292519943295 # pi/180
+                    degrees = 0.017453292519943295  # pi/180
                     ctx.arc(x + w - BORDER_RADIUS, y + BORDER_RADIUS, BORDER_RADIUS, -90 * degrees, 0 * degrees)
                     ctx.arc(x + w - BORDER_RADIUS, y + h - BORDER_RADIUS, BORDER_RADIUS, 0 * degrees, 90 * degrees)
                     ctx.arc(x + BORDER_RADIUS, y + h - BORDER_RADIUS, BORDER_RADIUS, 90 * degrees, 180 * degrees)
@@ -428,26 +428,28 @@ class Highlight(Gtk.Window):
                     ctx.close_path()
                 else:
                     ctx.rectangle(x, y, w, h)
- 
-                ctx.set_source_rgba(BORDER_R/255, BORDER_G/255, BORDER_B/255, BORDER_A)
+
+                ctx.set_source_rgba(BORDER_R / 255, BORDER_G / 255, BORDER_B / 255, BORDER_A)
                 ctx.set_line_width(BORDER_WIDTH)
                 ctx.stroke()
         ctx.restore()
 
+
 def main():
     get_args()
     root = Gdk.get_default_root_window()
-    screen = root.get_screen()
+    root.get_screen()
     screen_width, screen_height = get_screen_size(Gdk.Display.get_default())
-
-    win = Highlight(screen_width, screen_height)
+    Highlight(screen_width, screen_height)
     Gtk.main()
+
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
         exit(0)
-
 else:
-    print("xborders: This program is not meant to be imported to other Python modules. Please run xborders as a standalone script!")
+    print(
+        "xborders: This program is not meant to be imported to other Python modules. Please run xborders as a "
+        "standalone script!")
