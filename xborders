@@ -384,6 +384,9 @@ class Highlight(Gtk.Window):
         self.queue_draw()
 
     def _calc_border_geometry(self, window):
+        if (window.get_state() & Wnck.WindowState.FULLSCREEN != 0):
+            self.border_path = [0, 0, 0, 0]
+            return
         x, y, w, h = window.get_client_window_geometry()
 
         # Inside
