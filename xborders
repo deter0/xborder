@@ -6,6 +6,7 @@ import subprocess
 import sys
 import threading
 import webbrowser
+import colorsys
 
 import cairo
 import gi
@@ -28,23 +29,52 @@ BORDER_R = 123
 BORDER_G = 88
 BORDER_B = 220
 BORDER_A = 1
+BORDER_GRADIENT_COLORS = []
 NO_VERSION_NOTIFY = False
 OFFSETS = [0, 0, 0, 0]
 
 
 def set_border_rgba(args):
-    try:
-        literal_value = int(args.border_rgba.replace("#", "0x"), 16)
-    except:
-        print(
-            f"`{args.border_rgba}` is an invalid hexadecimal number!",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    args.border_red = literal_value >> (3 * 8) & 0xFF
-    args.border_green = literal_value >> (2 * 8) & 0xFF
-    args.border_blue = literal_value >> (1 * 8) & 0xFF
-    args.border_alpha = (literal_value >> (0 * 8) & 0xFF) / 255  # map from 0 to 1
+
+    if args.border_rgba: # solid color
+        try:
+            literal_value = int(args.border_rgba.replace("#", "0x"), 16)
+        except:
+            print(
+                f"`{args.border_rgba}` is an invalid hexadecimal number!",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        args.border_red = literal_value >> (3 * 8) & 0xFF
+        args.border_green = literal_value >> (2 * 8) & 0xFF
+        args.border_blue = literal_value >> (1 * 8) & 0xFF
+        args.border_alpha = (literal_value >> (0 * 8) & 0xFF) / 255  # map from 0 to 1
+    
+    elif args.border_gradient: # gradient
+
+        for color in args.border_gradient:
+            try:
+                literal_value = int(color.replace("#", "0x"), 16)
+            except:
+                print(
+                    f"`{args.border_rgba}` is an invalid hexadecimal number!",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            
+            red = (literal_value >> (3 * 8) & 0xFF) / 255
+            green = (literal_value >> (2 * 8) & 0xFF) / 255
+            blue = (literal_value >> (1 * 8) & 0xFF) / 255
+            alpha = (literal_value >> (0 * 8) & 0xFF) / 255
+
+            BORDER_GRADIENT_COLORS.append((red, green, blue, alpha))
+
+    elif args.rainbow: # rainbow
+
+        for i in range(args.rainbow_steps):
+            color = colorsys.hsv_to_rgb(i / args.rainbow_steps, args.rainbow_value, args.rainbow_brightness)
+
+            BORDER_GRADIENT_COLORS.append((*color, 1))
 
 
 def get_version():
@@ -100,10 +130,40 @@ def get_args():
         default=1,
         help="The border's alpha value, between zero and 1",
     )
-    parser.add_argument(
+    color_group = parser.add_mutually_exclusive_group()
+    color_group.add_argument(
         "--border-rgba",
         default=None,
         help="The colours of the border in hex format, example: #FF0000FF",
+    )
+    color_group.add_argument(
+        "--border-gradient",
+        default=None,
+        help="The colors of the border as a gradient, separated by spaces. Example: #FF0000FF #00FF00FF",
+        nargs="+",
+    )
+    color_group.add_argument(
+        "--rainbow",
+        action="store_true",
+        help="Use a rainbow gradient for the color of the border.",
+    )
+    parser.add_argument(
+        "--rainbow-steps",
+        type=int,
+        default=50,
+        help="The amount of colors in the rainbow gradient",
+    )
+    parser.add_argument(
+        "--rainbow-value",
+        type=float,
+        default=1,
+        help="The value / saturation of the colors when using --rainbow, on a scale from 0 to 1."
+    )
+    parser.add_argument(
+        "--rainbow-brightness",
+        type=float,
+        default=1,
+        help="The brightness of the colors when using --rainbow, on a scale from 0 to 1."
     )
     parser.add_argument(
         "--border-mode",
@@ -149,7 +209,7 @@ def get_args():
     if args.version is True:
         print(f"xborders v{get_version()}")
         exit(0)
-    if args.border_rgba is not None:
+    if args.border_rgba is not None or args.border_gradient is not None or args.rainbow is not None:
         set_border_rgba(args)
 
     # Extract the literal values
@@ -432,7 +492,14 @@ class Highlight(Gtk.Window):
                 else:
                     ctx.rectangle(x, y, w, h)
 
-                ctx.set_source_rgba(BORDER_R / 255, BORDER_G / 255, BORDER_B / 255, BORDER_A)
+                if BORDER_GRADIENT_COLORS:
+                    grad = cairo.LinearGradient(x, y, x + w, y + h)
+                    for i, color in enumerate(BORDER_GRADIENT_COLORS):
+                        grad.add_color_stop_rgba(i / len(BORDER_GRADIENT_COLORS), *color)
+                    ctx.set_source(grad)
+                else:
+                    ctx.set_source_rgba(BORDER_R / 255, BORDER_G / 255, BORDER_B / 255, BORDER_A)
+
                 ctx.set_line_width(BORDER_WIDTH)
                 ctx.stroke()
         ctx.restore()
