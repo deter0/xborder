@@ -30,11 +30,13 @@ BORDER_G = 88
 BORDER_B = 220
 BORDER_A = 1
 BORDER_GRADIENT_COLORS = []
+ABSOLUTE_GRADIENT = None
 NO_VERSION_NOTIFY = False
 OFFSETS = [0, 0, 0, 0]
 
 
 def set_border_rgba(args):
+    global BORDER_GRADIENT_COLORS, ABSOLUTE_GRADIENT
 
     if args.border_rgba: # solid color
         try:
@@ -75,7 +77,12 @@ def set_border_rgba(args):
             color = colorsys.hsv_to_rgb(i / args.rainbow_steps, args.rainbow_value, args.rainbow_brightness)
 
             BORDER_GRADIENT_COLORS.append((*color, 1))
-
+    
+    # generate absolute gradient
+    if args.absolute_gradient:
+        ABSOLUTE_GRADIENT = cairo.LinearGradient(0, 0, *get_screen_size(Gdk.Display.get_default()))
+        for i, color in enumerate(BORDER_GRADIENT_COLORS):
+            ABSOLUTE_GRADIENT.add_color_stop_rgba(i / len(BORDER_GRADIENT_COLORS), *color)
 
 def get_version():
     our_location = os.path.dirname(os.path.abspath(__file__))
@@ -142,6 +149,11 @@ def get_args():
         help="The colors of the border as a gradient, separated by spaces. Example: #FF0000FF #00FF00FF",
         nargs="+",
     )
+    parser.add_argument(
+        "--absolute-gradient",
+        action="store_true",
+        help="Use one gradient over the entire screen, and mask the borders to it",
+    )
     color_group.add_argument(
         "--rainbow",
         action="store_true",
@@ -150,7 +162,7 @@ def get_args():
     parser.add_argument(
         "--rainbow-steps",
         type=int,
-        default=50,
+        default=20,
         help="The amount of colors in the rainbow gradient",
     )
     parser.add_argument(
@@ -493,10 +505,15 @@ class Highlight(Gtk.Window):
                     ctx.rectangle(x, y, w, h)
 
                 if BORDER_GRADIENT_COLORS:
-                    grad = cairo.LinearGradient(x, y, x + w, y + h)
-                    for i, color in enumerate(BORDER_GRADIENT_COLORS):
-                        grad.add_color_stop_rgba(i / len(BORDER_GRADIENT_COLORS), *color)
-                    ctx.set_source(grad)
+
+                    if ABSOLUTE_GRADIENT:
+                        ctx.set_source(ABSOLUTE_GRADIENT)
+                    else:
+                        grad = cairo.LinearGradient(x, y, x + w, y + h)
+                        for i, color in enumerate(BORDER_GRADIENT_COLORS):
+                            grad.add_color_stop_rgba(i / len(BORDER_GRADIENT_COLORS), *color)
+                        ctx.set_source(grad)
+
                 else:
                     ctx.set_source_rgba(BORDER_R / 255, BORDER_G / 255, BORDER_B / 255, BORDER_A)
 
