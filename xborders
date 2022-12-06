@@ -74,7 +74,7 @@ def set_border_rgba(args):
     elif args.rainbow: # rainbow
 
         for i in range(args.rainbow_steps):
-            color = colorsys.hsv_to_rgb(i / args.rainbow_steps, args.rainbow_value, args.rainbow_brightness)
+            color = colorsys.hsv_to_rgb(i / args.rainbow_steps, args.rainbow_saturation, args.rainbow_value)
 
             BORDER_GRADIENT_COLORS.append((*color, 1))
     
@@ -166,16 +166,16 @@ def get_args():
         help="The amount of colors in the rainbow gradient",
     )
     parser.add_argument(
+        "--rainbow-saturation",
+        type=float,
+        default=1,
+        help="The saturation of the colors when using --rainbow, on a scale from 0 to 1."
+    )
+    parser.add_argument(
         "--rainbow-value",
         type=float,
         default=1,
-        help="The value / saturation of the colors when using --rainbow, on a scale from 0 to 1."
-    )
-    parser.add_argument(
-        "--rainbow-brightness",
-        type=float,
-        default=1,
-        help="The brightness of the colors when using --rainbow, on a scale from 0 to 1."
+        help="The value (brightness) of the colors when using --rainbow, on a scale from 0 to 1."
     )
     parser.add_argument(
         "--border-mode",
