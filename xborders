@@ -115,7 +115,7 @@ def get_args():
     parser.add_argument(
         "--smart-hide-border",
         action='store_true',
-        help="Don't print a border if the window is alone in the workspace."
+        help="Don't display a border if the window is alone in the workspace."
     )
     parser.add_argument(
         "--disable-version-warning",
