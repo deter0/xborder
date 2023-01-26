@@ -401,7 +401,8 @@ class Highlight(Gtk.Window):
         if (window.get_state() & Wnck.WindowState.FULLSCREEN != 0):
             self.border_path = [0, 0, 0, 0]
             return
-        x, y, w, h = window.get_client_window_geometry()
+        # window.get_geometry() works better than window.get_client-geometry() which is odd
+        x, y, w, h = window.get_geometry()
 
         # Inside
         if BORDER_MODE == INSIDE:
