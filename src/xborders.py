@@ -186,9 +186,14 @@ class Highlight(Gtk.Window):
         self.old_signals_to_disconnect = []
         self.old_window = None
 
-        active_window = self.wnck_screen.get_active_window()
-
         self.border_path = [0, 0, 0, 0]
+        active_window = self.wnck_screen.get_active_window()
+        
+        if (active_window and active_window.get_class_instance_name() in GlobalConfig.windowBlacklist):
+            self.active_window = None
+            self.queue_draw()
+            return
+
         if active_window != None and not (GlobalConfig.smartHideBorder and self.is_alone_in_workspace()):
             # Find if the window has a 'geometry-changed' event connected.
 

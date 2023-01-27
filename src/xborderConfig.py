@@ -23,6 +23,7 @@ class xborderConfig:
   disableUpdatePrompt: bool = False
   offsets: tuple[float] = [0, 0, 0, 0]
   printVersion: bool = True
+  windowBlacklist: list[str] = []
   
   parser = None
   def __init__(self):
@@ -122,10 +123,11 @@ class xborderConfig:
       self.offsets[1] = configFileDecoded['positive-offset'][1]
     
     if (configFileDecoded['negative-offset'] != None):
-      print("A")
       self.offsets[2] = configFileDecoded['negative-offset'][0]
       self.offsets[3] = configFileDecoded['negative-offset'][1]
-      print((configFileDecoded['negative-offset'][0]))
+      
+    if (configFileDecoded['blacklist-windows'] != None):
+      self.windowBlacklist = configFileDecoded['blacklist-windows']
   
   def PraseOffset(self, original_offset_string: str) -> tuple[float]:
     offset_string = original_offset_string.replace("[", "").replace("]", "")

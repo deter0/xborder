@@ -3,6 +3,9 @@
     "border-radius": 14.0,
     "border-thickness": 14.0,
     "border-color": "rgba(123, 88, 220, 1.0)",
+    "blacklist-windows": [
+        "code"
+    ],
     "disable-update-prompt": false,
     "positive-offset": [
         0,

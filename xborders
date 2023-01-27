@@ -1,3 +1,4 @@
 #!/bin/bash
 
-python3 ./src/xborders.py $@
+./src/xborders.py $@ &
+exit
