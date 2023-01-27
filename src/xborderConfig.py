@@ -1,6 +1,7 @@
 from enum import Enum
 
 import argparse
+import json
 
 class BorderMode(Enum):
   INSIDE = 0
@@ -27,26 +28,37 @@ class xborderConfig:
   def __init__(self):
     self.parser = argparse.ArgumentParser()
   
-  def PraseColor(self, color_string: str) -> int|Color:
+  def BorderModeStrToEnum(self, border_mode: str) -> BorderMode|None:
+    if border_mode.lower() == "outside":
+      return BorderMode.OUTSIDE
+    elif border_mode.lower() == "inside":
+      return BorderMode.INSIDE
+    elif border_mode.lower() == "center":
+      return BorderMode.CENTER
+    else:
+      return None
+  
+  def PraseColor(self, color_string: str) -> int|None:
     color_string_copy = color_string
     prased_color: Color = Color()
 
     if (color_string[0] == '#'):
       try:
         literal_value = int(color_string.replace('#', "0x"), 16)
-        if (len(color_string) == 4):
-          prased_color.r = literal_value >> (8 * 3) & 0xFF
-          prased_color.g = literal_value >> (8 * 2) & 0xFF
-          prased_color.b = literal_value >> (8 * 1) & 0xFF
-          prased_color.a = literal_value >> (8 * 0) & 0xFF
-        elif (len(color_string) == 3):
-          prased_color.r = literal_value >> (8 * 2) & 0xFF
-          prased_color.g = literal_value >> (8 * 1) & 0xFF
-          prased_color.b = literal_value >> (8 * 0) & 0xFF
+        if (len(color_string) == 2*4+1):
+          prased_color.r = (literal_value >> (8 * 3) & 0xFF) / 255.0
+          prased_color.g = (literal_value >> (8 * 2) & 0xFF) / 255.0
+          prased_color.b = (literal_value >> (8 * 1) & 0xFF) / 255.0
+          prased_color.a = (literal_value >> (8 * 0) & 0xFF) / 255.0
           return prased_color
-        return 0
+        elif (len(color_string) == 2*3+1):
+          prased_color.r = (literal_value >> (8 * 2) & 0xFF) / 255.0
+          prased_color.g = (literal_value >> (8 * 1) & 0xFF) / 255.0
+          prased_color.b = (literal_value >> (8 * 0) & 0xFF) / 255.0
+          return prased_color
+        return None
       except:
-        return 0
+        return None
     elif (color_string.startswith('rgba')):
       color_string = color_string.replace("rgba(", "").replace(")", "")
       values = color_string.split(",")
@@ -81,7 +93,39 @@ class xborderConfig:
       
       return prased_color
     else:
-      return 0
+      return None
+  
+  def ParseConfigFile(self, configFilePath: str) -> None:
+    configFile = open(configFilePath, "r")
+    configFileContent = configFile.read()
+    configFile.close()
+    
+    configFileDecoded = json.loads(configFileContent)
+    
+    if (configFileDecoded['border-mode'] != None):
+      self.borderMode = self.BorderModeStrToEnum(configFileDecoded['border-mode']) or self.borderMode
+    
+    if (configFileDecoded['border-color'] != None):
+      self.borderColor = self.PraseColor(configFileDecoded['border-color']) or self.borderColor
+    
+    if (configFileDecoded['border-thickness'] != None):
+      self.borderThickness = float(configFileDecoded['border-thickness']) or self.borderThickness
+    
+    if (configFileDecoded['border-radius'] != None):
+      self.borderRadius = float(configFileDecoded['border-radius']) or self.borderRadius
+    
+    if (configFileDecoded['disable-update-prompt'] != None):
+      self.disableUpdatePrompt = bool(configFileDecoded['disable-update-prompt'])
+    
+    if (configFileDecoded['positive-offset'] != None):
+      self.offsets[0] = configFileDecoded['positive-offset'][0]
+      self.offsets[1] = configFileDecoded['positive-offset'][1]
+    
+    if (configFileDecoded['negative-offset'] != None):
+      print("A")
+      self.offsets[2] = configFileDecoded['negative-offset'][0]
+      self.offsets[3] = configFileDecoded['negative-offset'][1]
+      print((configFileDecoded['negative-offset'][0]))
   
   def PraseOffset(self, original_offset_string: str) -> tuple[float]:
     offset_string = original_offset_string.replace("[", "").replace("]", "")
@@ -152,7 +196,7 @@ class xborderConfig:
     )
     
     args = self.parser.parse_args()
-
+    
     self.printVersion = args.version == True
     
     if args.border_mode.lower() == "outside":
@@ -163,7 +207,9 @@ class xborderConfig:
       self.borderMode = BorderMode.CENTER
     
     self.borderRadius = args.border_radius
-    self.borderColor = self.PraseColor(args.border_color)
+    parsedColor = self.PraseColor(args.border_color)
+    self.borderColor = parsedColor if (parsedColor != 0) else Color()
+
     self.borderThickness = args.border_thickness or 2
     self.disableUpdatePrompt = args.disable_update_prompt
     self.smartHideBorder = args.smart_hide_border
@@ -171,3 +217,6 @@ class xborderConfig:
     positive_offset = self.PraseOffset(args.positive_offset)
     negative_offset = self.PraseOffset(args.negative_offset)
     self.offsets = [positive_offset[0], positive_offset[1], negative_offset[0], negative_offset[1]]
+    
+    if args.config:
+      self.ParseConfigFile(args.config)
