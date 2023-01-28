@@ -43,13 +43,15 @@ def get_latest_version() -> float|str:
 
 def get_screen_size(display) -> tuple[int]:  # TODO: Multiple monitor size support
     mon_geoms = [display.get_monitor(i).get_geometry() for i in range(display.get_n_monitors())]
-
+    mon_scales = [display.get_monitor(i).get_scale_factor() for i in range(display.get_n_monitors())]
+    
     x0 = min(r.x for r in mon_geoms)
     y0 = min(r.y for r in mon_geoms)
     x1 = max(r.x + r.width for r in mon_geoms)
     y1 = max(r.y + r.height for r in mon_geoms)
+    scale = max(m for m in mon_scales)
 
-    return x1 - x0, y1 - y0
+    return (x1 - x0), (y1 - y0), scale
 
 def notify_about_version(our_version: float, latest_version: float) -> None:
         notification_string = f"xborders has an update!  [{our_version} 🡢 {latest_version}]"
@@ -101,7 +103,7 @@ def notify_version():
             pass
 
 class Highlight(Gtk.Window):
-    def __init__(self, screen_width, screen_height):
+    def __init__(self, screen_width, screen_height, screen_scale):
         super().__init__(type=Gtk.WindowType.POPUP)
         notify_version()
 
@@ -121,6 +123,7 @@ class Highlight(Gtk.Window):
         self.set_wmclass("xborders", "xborder")
 
         self.resize(screen_width, screen_height)
+        self.screen_scale = screen_scale
         self.move(0, 0)
 
         self.fullscreen()
@@ -267,8 +270,13 @@ class Highlight(Gtk.Window):
         y -= GlobalConfig.offsets[3] or 0
         h += GlobalConfig.offsets[3] or 0
 
-        # Center
-        self.border_path = [x, y, w, h]
+        if type(self.screen_scale) == list:
+            self.screen_scale = self.screen_scale[0]
+        self.border_path = [
+            x / self.screen_scale,
+            y / self.screen_scale,
+            w / self.screen_scale,
+            h / self.screen_scale]
 
     def _draw(self, _wid, ctx):
         ctx.save()
@@ -306,8 +314,8 @@ def main():
     
     root = Gdk.get_default_root_window()
     root.get_screen()
-    screen_width, screen_height = get_screen_size(Gdk.Display.get_default())
-    Highlight(screen_width, screen_height)
+    screen_width, screen_height, screen_scale = get_screen_size(Gdk.Display.get_default())
+    Highlight(screen_width, screen_height, screen_scale)
     Gtk.main()
 
 
