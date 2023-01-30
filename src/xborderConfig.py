@@ -192,6 +192,12 @@ class xborderConfig:
       help="How much to increase the windows size to the left and up, example '[12, 24]."
     )
     self.parser.add_argument(
+      "--blacklist-windows",
+      default="",
+      type=str,
+      help="Which windows to blacklist using their WM_CLASS (you can see this with the xprop command). Example: 'code', 'code,firefox'"
+    )
+    self.parser.add_argument(
       "--version",
       action="store_true",
       help="Print the version of xborders and exit."
@@ -219,6 +225,8 @@ class xborderConfig:
     positive_offset = self.PraseOffset(args.positive_offset)
     negative_offset = self.PraseOffset(args.negative_offset)
     self.offsets = [positive_offset[0], positive_offset[1], negative_offset[0], negative_offset[1]]
+    
+    self.windowBlacklist = args.blacklist_windows.split(',')
     
     if args.config:
       self.ParseConfigFile(args.config)

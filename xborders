@@ -1,4 +1,4 @@
 #!/bin/bash
 
-./src/xborders.py $@ &
+./src/xborders.py $@
 exit
