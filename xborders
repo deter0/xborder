@@ -17,6 +17,8 @@ gi.require_version("Wnck", "3.0")
 gi.require_version("GObject", "2.0")
 from gi.repository import Gtk, Gdk, Wnck, GObject
 
+VERSION = 3.4
+
 INSIDE = 'inside'
 OUTSIDE = 'outside'
 CENTER = 'center'
@@ -46,16 +48,6 @@ def set_border_rgba(args):
     args.border_green = literal_value >> (2 * 8) & 0xFF
     args.border_blue = literal_value >> (1 * 8) & 0xFF
     args.border_alpha = (literal_value >> (0 * 8) & 0xFF) / 255  # map from 0 to 1
-
-
-def get_version():
-    our_location = os.path.dirname(os.path.abspath(__file__))
-
-    version_file = open(our_location + "/version.txt", "r")
-    our_version_string = version_file.read()
-    version_file.close()
-
-    return float(our_version_string)
 
 
 def get_args():
@@ -153,7 +145,7 @@ def get_args():
     )
     args = parser.parse_args()
     if args.version is True:
-        print(f"xborders v{get_version()}")
+        print(f"xborders v{VERSION}")
         exit(0)
     if args.border_rgba is not None:
         set_border_rgba(args)
@@ -218,8 +210,8 @@ def get_screen_size(display):  # TODO: Multiple monitor size support
     return x1 - x0, y1 - y0
 
 
-def notify_about_version(our_version: float, latest_version: float):
-    notification_string = f"xborders has an update!  [{our_version} 🡢 {latest_version}]"
+def notify_about_version(latest_version: float):
+    notification_string = f"xborders has an update!  [{VERSION} 🡢 {latest_version}]"
     completed_process = subprocess.run(
         ["notify-send", "--app-name=xborder", "--expire-time=5000", notification_string, "--action=How to Update?",
          "--action=Ignore Update"],
@@ -252,7 +244,6 @@ def notify_version():
         latest_version_string = request.content.decode("utf-8")
 
         latest_version = float(latest_version_string)
-        our_version = get_version()
 
         if os.path.isfile(our_location + "/.update_ignore.txt"):
             ignore_version_file = open(our_location + "/.update_ignore.txt", "r")
@@ -261,8 +252,8 @@ def notify_version():
             if ignored_version == latest_version:
                 return
 
-        if our_version < latest_version:
-            threading._start_new_thread(notify_about_version, (our_version, latest_version))
+        if VERSION < latest_version:
+            threading._start_new_thread(notify_about_version, (latest_version))
     except:
         subprocess.Popen(["notify-send", "--app-name=xborders", "ERROR: xborders couldn't get latest version!"])
 
