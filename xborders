@@ -392,8 +392,8 @@ class Highlight(Gtk.Window):
         if (window.get_state() & Wnck.WindowState.FULLSCREEN != 0):
             self.border_path = [0, 0, 0, 0]
             return
-        # window.get_geometry() works better than window.get_client-geometry() which is odd
-        x, y, w, h = window.get_geometry()
+        # TODO(kay:) Find out why `get_geometry` works better than `get_client_window_geometry` on Gnome but for some windows it doesnt
+        x, y, w, h = window.get_client_window_geometry()
 
         # Inside
         if BORDER_MODE == INSIDE:
