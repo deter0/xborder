@@ -37,18 +37,17 @@ OFFSETS = [0, 0, 0, 0]
 
 def set_border_rgba(args):
     try:
-        literal_value = int(args.border_rgba.replace("#", "0x"), 16)
+        literal_value = int(args.border_rgba.replace("#", ""), 16)
     except:
         print(
             f"`{args.border_rgba}` is an invalid hexadecimal number!",
             file=sys.stderr,
         )
         sys.exit(1)
-    args.border_red = literal_value >> (3 * 8) & 0xFF
-    args.border_green = literal_value >> (2 * 8) & 0xFF
-    args.border_blue = literal_value >> (1 * 8) & 0xFF
-    args.border_alpha = (literal_value >> (0 * 8) & 0xFF) / 255  # map from 0 to 1
-
+    args.border_red = (literal_value >> 16) & 0xFF
+    args.border_green = (literal_value >> 8) & 0xFF
+    args.border_blue = literal_value & 0xFF
+    args.border_alpha = 1.0  # Assuming alpha should be set to 1.0 (fully opaque)
 
 def get_args():
     parser = argparse.ArgumentParser()
