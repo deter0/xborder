@@ -39,15 +39,20 @@ def set_border_rgba(args):
     try:
         literal_value = int(args.border_rgba.replace("#", "0x"), 16)
     except:
-        print(
-            f"`{args.border_rgba}` is an invalid hexadecimal number!",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    args.border_red = literal_value >> (3 * 8) & 0xFF
-    args.border_green = literal_value >> (2 * 8) & 0xFF
-    args.border_blue = literal_value >> (1 * 8) & 0xFF
-    args.border_alpha = (literal_value >> (0 * 8) & 0xFF) / 255  # map from 0 to 1
+        raise ValueError(f"`{args.border_rgba}` is an invalid hexadecimal number!")
+
+    if len(args.border_rgba) == 4*2+1:
+      args.border_red = literal_value >> (3 * 8) & 0xFF
+      args.border_green = literal_value >> (2 * 8) & 0xFF
+      args.border_blue = literal_value >> (1 * 8) & 0xFF
+      args.border_alpha = (literal_value >> (0 * 8) & 0xFF) / 255  # map from 0 to 1
+    elif len(args.border_rgba) == 3*2+1:
+      args.border_red = literal_value >> (2 * 8) & 0xFF
+      args.border_green = literal_value >> (1 * 8) & 0xFF
+      args.border_blue = literal_value >> (0 * 8) & 0xFF
+      args.border_alpha = 1.0
+    else:
+      raise ValueError(f"`{args.border_rgba}` is an invalid hexadecimal color string.")
 
 
 def get_args():
