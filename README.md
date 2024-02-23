@@ -39,5 +39,33 @@ blur-background-exclude = [
 ### Config
 Configuration options can be found by passing in the argument `--help` on the command line, or by specifying a config file with the argument `-c`. The config file is just a simple json file with the keys being the same as the command-line arguments (except without the "--" at the beginning).
 
+Now you can specify only the apps to which you want to add a border, instead of all apps:
+```json
+{
+    "border-rgba": "#FFFFFFFF",
+    "border-radius": 14,
+    "border-width": 4,
+    "border-mode": "outside",
+    "apply-only": false,
+    "apply-only-list": ["Xfce4-terminal", "Alacritty", "kitty", "URxvt", "XTerm"],
+    "disable-version-warning": false,
+
+    "positive-x-offset": 0,
+    "positive-y-offset": 0,
+    "negative-x-offset": 0,
+    "negative-y-offset": 0
+}
+```
+
+The option `apply-only` is a flag which you can enable (by default is disabled), and `apply-only-list` is the list of `CLASSNAME` of your X apps.
+
+How to discover my terminal `CLASSNAME`:
+
+```bash
+xdotool getwindowclassname $WINDOWID
+```
+
+To discover other `CLASSNAME` of your apps, just search for them on the internet.
+
 # Updating
 cd into the xborders directory and run `git pull origin main`

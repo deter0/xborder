@@ -1,8 +1,10 @@
 {
-    "border-rgba": "0xFFFFFFFF",
+    "border-rgba": "#FFFFFFFF",
     "border-radius": 14,
     "border-width": 4,
     "border-mode": "outside",
+    "apply-only": false,
+    "apply-only-list": ["Xfce4-terminal", "Alacritty", "kitty", "URxvt", "XTerm"],
     "disable-version-warning": false,
 
     "positive-x-offset": 0,

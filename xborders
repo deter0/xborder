@@ -32,6 +32,8 @@ BORDER_B = 220
 BORDER_A = 1
 SMART_HIDE_BORDER = False
 NO_VERSION_NOTIFY = False
+APPLY_ONLY_FLAG = False
+APPLY_ONLY_LIST = []
 OFFSETS = [0, 0, 0, 0]
 
 
@@ -148,6 +150,12 @@ def get_args():
         action="store_true",
         help="Print the version of xborders and exit."
     )
+    parser.add_argument(
+        "--apply-only",
+        action="store_true",
+        help="Activate the apply-only option."
+    )
+
     args = parser.parse_args()
     if args.version is True:
         print(f"xborders v{VERSION}")
@@ -178,6 +186,8 @@ def get_args():
     global BORDER_A
     global SMART_HIDE_BORDER
     global NO_VERSION_NOTIFY
+    global APPLY_ONLY_FLAG
+    global APPLY_ONLY_LIST
     global OFFSETS
 
     BORDER_RADIUS = args.border_radius
@@ -188,6 +198,8 @@ def get_args():
     BORDER_A = args.border_alpha
     NO_VERSION_NOTIFY = args.disable_version_warning
     SMART_HIDE_BORDER = args.smart_hide_border
+    APPLY_ONLY_FLAG = args.apply_only
+    APPLY_ONLY_LIST = [classname.replace("_", "-") for classname in args.apply_only_list]
     OFFSETS = [
         args.positive_x_offset or 0,
         args.positive_y_offset or 0,
@@ -429,6 +441,11 @@ class Highlight(Gtk.Window):
         self.border_path = [x, y, w, h]
 
     def _draw(self, _wid, ctx):
+        if APPLY_ONLY_FLAG and APPLY_ONLY_LIST:
+            window_classname = _wid.wnck_screen.get_active_window().get_class_group_name()
+            if window_classname not in APPLY_ONLY_LIST:
+                return
+
         ctx.save()
         if self.border_path != [0, 0, 0, 0]:
             x, y, w, h = self.border_path
