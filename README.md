@@ -37,7 +37,7 @@ blur-background-exclude = [
 ![image](https://user-images.githubusercontent.com/82973108/160370578-3ea7e3e9-723a-4054-b7b0-2b0110d809c0.png)
 
 ### Config
-Configuration options can be found by passing in the argument `--help` on the command line, or by specifying a config file with the argument `-c`. The config file is just a simple json file with the keys being the same as the command-line arguments (except without the "--" at the beginning).
+Configuration options can be found by passing in the argument `--help` on the command line, or by specifying a config file with the argument `-c`. The config file is just a simple json file with the keys being the same as the command-line arguments (except without the "--" at the beginning). To exclude windows, create a config file with "exclude-list" (look at example-config.json) and put the window class names to this list, you can find out the name of a class using `xprop | grep WM_CLASS`
 
 # Updating
 cd into the xborders directory and run `git pull origin main`
