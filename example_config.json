@@ -1,9 +1,10 @@
 {
-    "border-rgba": "0xFFFFFFFF",
+    "border-rgba": "#FFFFFFFF",
     "border-radius": 14,
     "border-width": 4,
     "border-mode": "outside",
     "disable-version-warning": false,
+    "exclude-list": ["Ulauncher", "firefox"],
 
     "positive-x-offset": 0,
     "positive-y-offset": 0,

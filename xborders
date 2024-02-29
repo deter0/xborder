@@ -22,6 +22,7 @@ VERSION = 3.4
 INSIDE = 'inside'
 OUTSIDE = 'outside'
 CENTER = 'center'
+EXCLUDE = []
 BORDER_MODES = [INSIDE, OUTSIDE, CENTER]
 BORDER_MODE = INSIDE
 BORDER_RADIUS = 14
@@ -168,6 +169,8 @@ def get_args():
                     args.__dict__[ident] = dat[
                         ident
                     ]  # Idea gotten from here: https://stackoverflow.com/a/1325798
+    else:
+        args.exclude_list = []
 
     global BORDER_RADIUS
     global BORDER_WIDTH
@@ -176,6 +179,7 @@ def get_args():
     global BORDER_G
     global BORDER_B
     global BORDER_A
+    global EXCLUDE
     global SMART_HIDE_BORDER
     global NO_VERSION_NOTIFY
     global OFFSETS
@@ -188,6 +192,7 @@ def get_args():
     BORDER_A = args.border_alpha
     NO_VERSION_NOTIFY = args.disable_version_warning
     SMART_HIDE_BORDER = args.smart_hide_border
+    EXCLUDE = args.exclude_list
     OFFSETS = [
         args.positive_x_offset or 0,
         args.positive_y_offset or 0,
@@ -429,6 +434,12 @@ class Highlight(Gtk.Window):
         self.border_path = [x, y, w, h]
 
     def _draw(self, _wid, ctx):
+        active_window = _wid.wnck_screen.get_active_window()
+        if active_window:
+            class_group_name = active_window.get_class_group_name()
+            if class_group_name in EXCLUDE:
+                return
+
         ctx.save()
         if self.border_path != [0, 0, 0, 0]:
             x, y, w, h = self.border_path
